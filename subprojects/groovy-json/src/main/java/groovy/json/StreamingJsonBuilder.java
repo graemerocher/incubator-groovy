@@ -691,7 +691,6 @@ public class StreamingJsonBuilder extends GroovyObjectSupport {
         public static Object writeCollectionWithClosure(Writer writer, Collection coll, Closure closure) throws IOException {
             return writeCollectionWithClosure(writer, (Iterable)coll, closure);
         }
-
         public static Object writeCollectionWithClosure(Writer writer, Iterable coll, Closure closure) throws IOException {
             writer.write(JsonOutput.OPEN_BRACKET);
             boolean first = true;
