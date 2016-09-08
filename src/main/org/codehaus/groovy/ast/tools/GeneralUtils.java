@@ -25,6 +25,7 @@ import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.FieldNode;
 import org.codehaus.groovy.ast.MethodNode;
+import org.codehaus.groovy.ast.PackageNode;
 import org.codehaus.groovy.ast.Parameter;
 import org.codehaus.groovy.ast.PropertyNode;
 import org.codehaus.groovy.ast.Variable;
@@ -48,11 +49,13 @@ import org.codehaus.groovy.ast.expr.StaticMethodCallExpression;
 import org.codehaus.groovy.ast.expr.TernaryExpression;
 import org.codehaus.groovy.ast.expr.VariableExpression;
 import org.codehaus.groovy.ast.stmt.BlockStatement;
+import org.codehaus.groovy.ast.stmt.CatchStatement;
 import org.codehaus.groovy.ast.stmt.EmptyStatement;
 import org.codehaus.groovy.ast.stmt.ExpressionStatement;
 import org.codehaus.groovy.ast.stmt.IfStatement;
 import org.codehaus.groovy.ast.stmt.ReturnStatement;
 import org.codehaus.groovy.ast.stmt.Statement;
+import org.codehaus.groovy.ast.stmt.ThrowStatement;
 import org.codehaus.groovy.classgen.Verifier;
 import org.codehaus.groovy.control.io.ReaderSource;
 import org.codehaus.groovy.runtime.GeneratedClosure;
@@ -61,6 +64,7 @@ import org.codehaus.groovy.syntax.Token;
 import org.codehaus.groovy.syntax.Types;
 import org.codehaus.groovy.transform.AbstractASTTransformation;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -70,11 +74,6 @@ import java.util.Set;
 
 /**
  * Handy methods when working with the Groovy AST
- *
- * @author Guillaume Laforge
- * @author Paul King
- * @author Andre Steingress
- * @author Graeme Rocher
  */
 public class GeneralUtils {
     public static final Token ASSIGN = Token.newSymbol(Types.ASSIGN, -1, -1);
@@ -127,6 +126,13 @@ public class GeneralUtils {
     }
 
     public static BlockStatement block(VariableScope varScope, Statement... stmts) {
+        BlockStatement block = new BlockStatement();
+        block.setVariableScope(varScope);
+        for (Statement stmt : stmts) block.addStatement(stmt);
+        return block;
+    }
+
+    public static BlockStatement block(VariableScope varScope, List<Statement> stmts) {
         BlockStatement block = new BlockStatement();
         block.setVariableScope(varScope);
         for (Statement stmt : stmts) block.addStatement(stmt);
@@ -497,8 +503,8 @@ public class GeneralUtils {
     }
 
     public static BooleanExpression hasSamePropertyX(PropertyNode pNode, Expression other) {
-        String getterName = getGetterName(pNode);
-        return sameX(callThisX(getterName), callX(other, getterName));
+        ClassNode cNode = pNode.getDeclaringClass();
+        return sameX(getterThisX(cNode, pNode), getterX(cNode, other, pNode));
     }
 
     public static Statement ifElseS(Expression cond, Statement thenStmt, Statement elseStmt) {
@@ -640,6 +646,14 @@ public class GeneralUtils {
         return new VariableExpression(name, type);
     }
 
+    public static ThrowStatement throwS(Expression expr) {
+        return new ThrowStatement(expr);
+    }
+
+    public static CatchStatement catchS(Parameter variable, Statement code) {
+        return new CatchStatement(variable, code);
+    }
+
     /**
      * This method is similar to {@link #propX(Expression, Expression)} but will make sure that if the property
      * being accessed is defined inside the classnode provided as a parameter, then a getter call is generated
@@ -718,5 +732,54 @@ public class GeneralUtils {
         String source = result.toString().trim();
 
         return source;
+    }
+
+    public static boolean copyStatementsWithSuperAdjustment(ClosureExpression pre, BlockStatement body) {
+        Statement preCode = pre.getCode();
+        boolean changed = false;
+        if (preCode instanceof BlockStatement) {
+            BlockStatement block = (BlockStatement) preCode;
+            List<Statement> statements = block.getStatements();
+            for (int i = 0; i < statements.size(); i++) {
+                Statement statement = statements.get(i);
+                // adjust the first statement if it's a super call
+                if (i == 0 && statement instanceof ExpressionStatement) {
+                    ExpressionStatement es = (ExpressionStatement) statement;
+                    Expression preExp = es.getExpression();
+                    if (preExp instanceof MethodCallExpression) {
+                        MethodCallExpression mce = (MethodCallExpression) preExp;
+                        String name = mce.getMethodAsString();
+                        if ("super".equals(name)) {
+                            es.setExpression(new ConstructorCallExpression(ClassNode.SUPER, mce.getArguments()));
+                            changed = true;
+                        }
+                    }
+                }
+                body.addStatement(statement);
+            }
+        }
+        return changed;
+    }
+
+    public static String getSetterName(String name) {
+        return "set" + Verifier.capitalize(name);
+    }
+
+    public static boolean isDefaultVisibility(int modifiers) {
+        return (modifiers & (Modifier.PRIVATE | Modifier.PUBLIC | Modifier.PROTECTED)) == 0;
+    }
+
+    public static boolean inSamePackage(ClassNode first, ClassNode second) {
+        PackageNode firstPackage = first.getPackage();
+        PackageNode secondPackage = second.getPackage();
+        return ((firstPackage == null && secondPackage == null) ||
+                        firstPackage != null && secondPackage != null && firstPackage.getName().equals(secondPackage.getName()));
+    }
+
+    public static boolean inSamePackage(Class first, Class second) {
+        Package firstPackage = first.getPackage();
+        Package secondPackage = second.getPackage();
+        return ((firstPackage == null && secondPackage == null) ||
+                        firstPackage != null && secondPackage != null && firstPackage.getName().equals(secondPackage.getName()));
     }
 }

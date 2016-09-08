@@ -72,16 +72,6 @@ public class JsonParserLax extends JsonParserCharArray {
             skipWhiteSpace();
 
             switch (__currentChar) {
-                case '/': /* */ //
-                    handleComment();
-                    startIndexOfKey = __index;
-                    break;
-
-                case '#':
-                    handleBashComment();
-                    startIndexOfKey = __index;
-                    break;
-
                 case ':':
                     char startChar = charArray[startIndexOfKey];
                     if (startChar == ',') {
@@ -161,10 +151,22 @@ public class JsonParserLax extends JsonParserCharArray {
                     }
 
                     break;
+            }
 
+            switch (__currentChar) {
                 case '}':
                     __index++;
                     break done;
+
+                case '/': /* */ //
+                    handleComment();
+                    startIndexOfKey = __index;
+                    break;
+
+                case '#':
+                    handleBashComment();
+                    startIndexOfKey = __index;
+                    break;
             }
         }
 
@@ -258,7 +260,7 @@ public class JsonParserLax extends JsonParserCharArray {
 
                 case 't':
                     if (isTrue()) {
-                        return decodeTrue() == true ? ValueContainer.TRUE : ValueContainer.FALSE;
+                        return decodeTrue() ? ValueContainer.TRUE : ValueContainer.FALSE;
                     } else {
                         value = decodeStringLax();
                     }
@@ -266,7 +268,7 @@ public class JsonParserLax extends JsonParserCharArray {
 
                 case 'f':
                     if (isFalse()) {
-                        return decodeFalse() == false ? ValueContainer.FALSE : ValueContainer.TRUE;
+                        return !decodeFalse() ? ValueContainer.FALSE : ValueContainer.TRUE;
                     } else {
                         value = decodeStringLax();
                     }
@@ -370,6 +372,13 @@ public class JsonParserLax extends JsonParserCharArray {
         }
     }
 
+    /**
+     * Decodes a number from a JSON value.  If at any point it is determined that
+     * the value is not a valid number the value is treated as a {@code String}.
+     *
+     * @param minus indicate whether the number is negative
+     * @return a number, or {@code String} if not a valid number
+     */
     protected final Value decodeNumberLax(boolean minus) {
         char[] array = charArray;
 
@@ -377,6 +386,9 @@ public class JsonParserLax extends JsonParserCharArray {
         int index = __index;
         char currentChar;
         boolean doubleFloat = false;
+        boolean foundDot = false;
+        boolean foundSign = false;
+        boolean foundExp = false;
 
         if (minus && index + 1 < array.length) {
             index++;
@@ -391,10 +403,39 @@ public class JsonParserLax extends JsonParserCharArray {
             } else if (isDelimiter(currentChar)) {
                 break;
             } else if (isDecimalChar(currentChar)) {
+                switch (currentChar) {
+                    case DECIMAL_POINT:
+                        if (foundDot || foundExp) { return decodeStringLax(); }
+                        foundDot = true;
+                        break;
+                    case LETTER_E:
+                    case LETTER_BIG_E:
+                        if (foundExp) { return decodeStringLax(); }
+                        foundExp = true;
+                        break;
+                    case MINUS:
+                    case PLUS:
+                        if (foundSign || !foundExp) { return decodeStringLax(); }
+                        if (foundExp && array[index - 1] != LETTER_E && array[index - 1] != LETTER_BIG_E) {
+                            return decodeStringLax();
+                        }
+                        foundSign = true;
+                        break;
+                }
                 doubleFloat = true;
+            } else {
+                return decodeStringLax();
             }
             index++;
             if (index >= array.length) break;
+        }
+
+        // Handle the case where the exponential number ends without the actual exponent
+        if (foundExp) {
+            char prevChar = array[index - 1];
+            if (prevChar == LETTER_E || prevChar == LETTER_BIG_E || prevChar == MINUS || prevChar == PLUS) {
+                return decodeStringLax();
+            }
         }
 
         __index = index;
@@ -402,9 +443,7 @@ public class JsonParserLax extends JsonParserCharArray {
 
         Type type = doubleFloat ? Type.DOUBLE : Type.INTEGER;
 
-        NumberValue value = new NumberValue(chop, type, startIndex, __index, this.charArray);
-
-        return value;
+        return new NumberValue(chop, type, startIndex, __index, this.charArray);
     }
 
     private boolean isNull() {
@@ -491,11 +530,7 @@ public class JsonParserLax extends JsonParserCharArray {
                     }
 
                 case '\\':
-                    if (!escape) {
-                        escape = true;
-                    } else {
-                        escape = false;
-                    }
+                    escape = !escape;
                     encoded = true;
                     continue;
             }

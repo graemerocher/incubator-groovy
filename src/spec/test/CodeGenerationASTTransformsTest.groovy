@@ -214,6 +214,20 @@ assert p.toString() == 'acme.Person(firstName:Jack, lastName:Nicholson)'
 
 '''
 
+        assertScript '''package acme
+import groovy.transform.ToString
+
+// tag::tostring_example_allNames[]
+@ToString(allNames=true)
+class Person {
+    String $firstName
+}
+
+def p = new Person($firstName: "Jack")
+assert p.toString() == 'acme.Person(Jack)'
+// end::tostring_example_allNames[]
+
+'''
     }
 
 
@@ -297,6 +311,74 @@ assert p1!=p2
 assert p1.hashCode() != p2.hashCode()
 // end::equalshashcode_example_super[]
 
+'''
+
+        assertScript '''
+// tag::equalshashcode_example_allNames[]
+import groovy.transform.EqualsAndHashCode
+
+@EqualsAndHashCode(allNames=true)
+class Person {
+    String $firstName
+}
+
+def p1 = new Person($firstName: 'Jack')
+def p2 = new Person($firstName: 'Bob')
+
+assert p1 != p2
+assert p1.hashCode() != p2.hashCode()
+// end::equalshashcode_example_allNames[]
+
+'''
+
+        assertScript '''
+// tag::equalshashcode_example_includeFields[]
+import groovy.transform.EqualsAndHashCode
+
+@EqualsAndHashCode(includeFields=true)
+class Person {
+    private String firstName
+
+    Person(String firstName) {
+        this.firstName = firstName
+    }
+}
+
+def p1 = new Person('Jack')
+def p2 = new Person('Jack')
+def p3 = new Person('Bob')
+
+assert p1 == p2
+assert p1 != p3
+// end::equalshashcode_example_includeFields[]
+'''
+
+        assertScript '''
+// tag::equalshashcode_example_cache[]
+import groovy.transform.EqualsAndHashCode
+import groovy.transform.Immutable
+
+@Immutable
+class SlowHashCode {
+    int hashCode() {
+        sleep 100
+        127
+    }
+}
+
+@EqualsAndHashCode(cache=true)
+@Immutable
+class Person {
+    SlowHashCode slowHashCode = new SlowHashCode()
+}
+
+def p = new Person()
+p.hashCode()
+
+def start = System.currentTimeMillis()
+p.hashCode()
+assert System.currentTimeMillis() - start < 100
+// end::equalshashcode_example_cache[]
 '''
     }
 
@@ -623,6 +705,53 @@ assert new Book(2015, false).toString() == 'Book(year:2015, fiction:false)'
 assert new Book("Regina", false).toString() == 'Book(name:Regina, fiction:false)'
 assert Book.constructors.size() == 3
 // end::tupleconstructor_example_defaults_multipleIncludes[]
+'''
+
+        assertScript '''
+// tag::tupleconstructor_example_allNames[]
+import groovy.transform.TupleConstructor
+
+@TupleConstructor(allNames=true)
+class Person {
+    String $firstName
+}
+
+def p = new Person('Jack')
+
+assert p.$firstName == 'Jack'
+// end::tupleconstructor_example_allNames[]
+'''
+
+        assertScript '''
+// tag::tupleconstructor_example_pre[]
+import groovy.transform.TupleConstructor
+
+@TupleConstructor(pre={ first = first?.toLowerCase() })
+class Person {
+    String first
+}
+
+def p = new Person('Jack')
+
+assert p.first == 'jack'
+// end::tupleconstructor_example_pre[]
+'''
+
+        assertScript '''
+// tag::tupleconstructor_example_post[]
+import groovy.transform.TupleConstructor
+import static groovy.test.GroovyAssert.shouldFail
+
+@TupleConstructor(post={ assert first })
+class Person {
+    String first
+}
+
+def jack = new Person('Jack')
+shouldFail {
+  def unknown = new Person()
+}
+// end::tupleconstructor_example_post[]
 '''
     }
 
@@ -1264,6 +1393,146 @@ def createFirstLastBorn() {
 
 createFirstLastBorn()
 // end::builder_initializer_immutable[]
+        '''
+    }
+
+    void testAutoImplement() {
+        assertScript '''
+// tag::autoimplement_default[]
+import groovy.transform.AutoImplement
+
+@AutoImplement
+class MyNames extends AbstractList<String> implements Closeable { }
+// end::autoimplement_default[]
+
+// tag::autoimplement_default_usage[]
+assert new MyNames().size() == 0
+// end::autoimplement_default_usage[]
+
+/*
+// tag::autoimplement_default_equiv[]
+class MyNames implements Closeable extends AbstractList<String> {
+
+    String get(int param0) {
+        return null
+    }
+
+    boolean addAll(Collection<? extends String> param0) {
+        return false
+    }
+
+    void close() throws Exception {
+    }
+
+    int size() {
+        return 0
+    }
+
+}
+// end::autoimplement_default_equiv[]
+*/
+        '''
+
+        assertScript '''
+import groovy.transform.AutoImplement
+// tag::autoimplement_exception[]
+@AutoImplement(exception=IOException)
+class MyWriter extends Writer { }
+// end::autoimplement_exception[]
+
+// tag::autoimplement_exception_usage[]
+import static groovy.test.GroovyAssert.shouldFail
+
+shouldFail(IOException) {
+  new MyWriter().flush()
+}
+// end::autoimplement_exception_usage[]
+
+/*
+// tag::autoimplement_exception_equiv[]
+class MyWriter extends Writer {
+
+    void flush() throws IOException {
+        throw new IOException()
+    }
+
+    void write(char[] param0, int param1, int param2) throws IOException {
+        throw new IOException()
+    }
+
+    void close() throws Exception {
+        throw new IOException()
+    }
+
+}
+// end::autoimplement_exception_equiv[]
+*/
+        '''
+
+        assertScript '''
+import groovy.transform.AutoImplement
+// tag::autoimplement_exceptionmsg[]
+@AutoImplement(exception=UnsupportedOperationException, message='Not supported by MyIterator')
+class MyIterator implements Iterator<String> { }
+// end::autoimplement_exceptionmsg[]
+
+import static groovy.test.GroovyAssert.shouldFail
+// tag::autoimplement_exceptionmsg_usage[]
+def ex = shouldFail(UnsupportedOperationException) {
+     new MyIterator().hasNext()
+}
+assert ex.message == 'Not supported by MyIterator'
+// end::autoimplement_exceptionmsg_usage[]
+
+/*
+// tag::autoimplement_exceptionmsg_equiv[]
+class MyIterator implements Iterator<String> {
+
+    boolean hasNext() {
+        throw new UnsupportedOperationException('Not supported by MyIterator')
+    }
+
+    String next() {
+        throw new UnsupportedOperationException('Not supported by MyIterator')
+    }
+
+}
+// end::autoimplement_exceptionmsg_equiv[]
+*/
+        '''
+
+        assertScript '''
+import groovy.transform.AutoImplement
+// tag::autoimplement_code[]
+@AutoImplement(code = { throw new UnsupportedOperationException('Should never be called but was called on ' + new Date()) })
+class EmptyIterator implements Iterator<String> {
+    boolean hasNext() { false }
+}
+// end::autoimplement_code[]
+
+import static groovy.test.GroovyAssert.shouldFail
+// tag::autoimplement_code_usage[]
+def ex = shouldFail(UnsupportedOperationException) {
+     new EmptyIterator().next()
+}
+assert ex.message.startsWith('Should never be called but was called on ')
+// end::autoimplement_code_usage[]
+
+/*
+// tag::autoimplement_code_equiv[]
+class EmptyIterator implements java.util.Iterator<String> {
+
+    boolean hasNext() {
+        false
+    }
+
+    String next() {
+        throw new UnsupportedOperationException('Should never be called but was called on ' + new Date())
+    }
+
+}
+// end::autoimplement_code_equiv[]
+*/
         '''
     }
 }

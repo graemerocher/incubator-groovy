@@ -21,7 +21,7 @@
 
 = Traits
 
-Traits are a a structural construct of the language which allow:
+Traits are a structural construct of the language which allows:
 
 * composition of behaviors
 * runtime implementation of interfaces
@@ -134,7 +134,7 @@ include::{projectdir}/src/spec/test/TraitsSpecificationTest.groovy[tags=trait_im
 <1> declaration of a normal interface
 <2> add `Named` to the list of implemented interfaces
 <3> declare a class that implements the `Greetable` trait
-<4> implement the missing `greet` method
+<4> implement the missing `name` method
 <5> the `greeting` implementation comes from the trait
 <6> make sure `Person` implements the `Named` interface
 <7> make sure `Person` implements the `Greetable` trait
@@ -199,8 +199,7 @@ WARNING: While traits support public fields, it is not recommended to use them a
 
 == Composition of behaviors
 
-Traits can be used to implement multiple inheritance in a controlled way, avoiding the diamond issue. For example, we
-can have the following traits:
+Traits can be used to implement multiple inheritance in a controlled way. For example, we can have the following traits:
 
 [source,groovy]
 ----

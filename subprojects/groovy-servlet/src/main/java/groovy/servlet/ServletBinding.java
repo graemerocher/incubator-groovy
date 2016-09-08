@@ -123,7 +123,7 @@ public class ServletBinding extends Binding {
      * @author Jochen Theodorou
      */
     private static class ServletOutput {
-        private HttpServletResponse response;
+        private final HttpServletResponse response;
         private ServletOutputStream outputStream;
         private PrintWriter writer;
         
@@ -329,7 +329,7 @@ public class ServletBinding extends Binding {
         super.setVariable("redirect", c);
     }
 
-    private void validateArgs(String name, String message) {
+    private static void validateArgs(String name, String message) {
         if (name == null) {
             throw new IllegalArgumentException(message + " null key.");
         }
@@ -338,7 +338,7 @@ public class ServletBinding extends Binding {
         }
     }
 
-    private void excludeReservedName(String name, String reservedName) {
+    private static void excludeReservedName(String name, String reservedName) {
         if (reservedName.equals(name)) {
             throw new IllegalArgumentException("Can't bind variable to key named '" + name + "'.");
         }

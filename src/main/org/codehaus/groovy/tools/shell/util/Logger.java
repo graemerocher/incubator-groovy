@@ -20,8 +20,6 @@ package org.codehaus.groovy.tools.shell.util;
 
 import org.codehaus.groovy.tools.shell.IO;
 
-import java.io.IOException;
-
 import static org.fusesource.jansi.Ansi.ansi;
 import static org.fusesource.jansi.Ansi.Color;
 import static org.fusesource.jansi.Ansi.Color.*;
@@ -44,9 +42,13 @@ public final class Logger {
     private void log(final String level, Object msg, Throwable cause) {
         assert level != null;
         assert msg != null;
-        
+
         if (io == null) {
-            io = new IO();
+            synchronized (Logger.class) {
+                if (io == null) {
+                    io = new IO();
+                }
+            }
         }
 
         // Allow the msg to be a Throwable, and handle it properly if no cause is given
@@ -68,11 +70,7 @@ public final class Logger {
             cause.printStackTrace(io.out);
         }
 
-        try {
-            io.flush();
-        } catch (IOException io) {
-            throw new RuntimeException(io);
-        }
+        io.flush();
     }
     
     //

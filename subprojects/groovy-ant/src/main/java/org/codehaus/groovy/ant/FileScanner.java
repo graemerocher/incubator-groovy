@@ -36,7 +36,7 @@ import org.apache.tools.ant.types.FileSet;
 public class FileScanner extends Task {
 
     /** FileSets */
-    private List filesets = new ArrayList();
+    private final List filesets = new ArrayList();
 
     public FileScanner() {
     }
@@ -54,7 +54,7 @@ public class FileScanner extends Task {
     }
 
     public boolean hasFiles() {
-        return filesets.size() > 0;
+        return !filesets.isEmpty();
     }
 
     /**

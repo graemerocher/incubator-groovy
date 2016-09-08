@@ -40,6 +40,7 @@ public class ManagedLinkedList<T> {
             super(bundle, value);
         }
 
+        @Override
         public void finalizeReference() {
             if (previous != null && previous.next != null) {
                 previous.next = next;
@@ -86,7 +87,7 @@ public class ManagedLinkedList<T> {
 
     private Element<T> tail;
     private Element<T> head;
-    private ReferenceBundle bundle;
+    private final ReferenceBundle bundle;
 
     public ManagedLinkedList(ReferenceBundle bundle) {
         this.bundle = bundle;

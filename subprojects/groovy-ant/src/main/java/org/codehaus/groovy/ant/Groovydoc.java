@@ -44,8 +44,8 @@ public class Groovydoc extends Task {
 
     private Path sourcePath;
     private File destDir;
-    private List<String> packageNames;
-    private List<String> excludePackageNames;
+    private final List<String> packageNames;
+    private final List<String> excludePackageNames;
     private String windowTitle = "Groovy Documentation";
     private String docTitle = "Groovy Documentation";
     private String footer = "Groovy Documentation";
@@ -61,9 +61,9 @@ public class Groovydoc extends Task {
     private boolean includeNoSourcePackages;
     private Boolean noTimestamp;
     private Boolean noVersionStamp;
-    private List<DirSet> packageSets;
-    private List<String> sourceFilesToDoc;
-    private List<LinkArgument> links = new ArrayList<LinkArgument>();
+    private final List<DirSet> packageSets;
+    private final List<String> sourceFilesToDoc;
+    private final List<LinkArgument> links = new ArrayList<LinkArgument>();
     private File overviewFile;
     private File styleSheetFile;
     // dev note: update javadoc comment for #setExtensions(String) if updating below
@@ -341,7 +341,7 @@ public class Groovydoc extends Task {
         // and nested excludepackage elements
         if (this.sourcePath != null) {
             PatternSet ps = new PatternSet();
-            if (packageNames.size() > 0) {
+            if (!packageNames.isEmpty()) {
                 for (String pn : packageNames) {
                     String pkg = pn.replace('.', '/');
                     if (pkg.endsWith("*")) {

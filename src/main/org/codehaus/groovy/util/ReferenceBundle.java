@@ -21,8 +21,8 @@ package org.codehaus.groovy.util;
 import java.lang.ref.ReferenceQueue;
 
 public class ReferenceBundle{
-    private ReferenceManager manager;
-    private ReferenceType type;
+    private final ReferenceManager manager;
+    private final ReferenceType type;
     public ReferenceBundle(ReferenceManager manager, ReferenceType type){
         this.manager = manager;
         this.type = type;
@@ -38,7 +38,7 @@ public class ReferenceBundle{
     static {
         ReferenceQueue queue = new ReferenceQueue();
         ReferenceManager callBack = ReferenceManager.createCallBackedManager(queue);
-        ReferenceManager manager  = ReferenceManager.createThresholdedIdlingManager(queue, callBack, 5000);
+        ReferenceManager manager  = ReferenceManager.createThresholdedIdlingManager(queue, callBack, 500);
         softReferences = new ReferenceBundle(manager, ReferenceType.SOFT);
         weakReferences = new ReferenceBundle(manager, ReferenceType.WEAK);
         phantomReferences = new ReferenceBundle(manager, ReferenceType.PHANTOM);

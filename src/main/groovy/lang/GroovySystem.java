@@ -37,12 +37,9 @@ public final class GroovySystem {
     }
     
     /**
-     * The MetaClass for java.lang.Object
-     */
-    private static MetaClass objectMetaClass;
-    /**
      * If true then the MetaClass will only use reflection for method dispatch, property access, etc.
      */
+    @Deprecated
     private static final boolean USE_REFLECTION;
 
     /**
@@ -61,6 +58,7 @@ public final class GroovySystem {
         // Do not allow this class to be instantiated
     }
 
+    @Deprecated
     public static boolean isUseReflection() {
         return USE_REFLECTION;
     }

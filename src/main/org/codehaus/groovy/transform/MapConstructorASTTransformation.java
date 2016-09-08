@@ -30,15 +30,10 @@ import org.codehaus.groovy.ast.FieldNode;
 import org.codehaus.groovy.ast.Parameter;
 import org.codehaus.groovy.ast.expr.ArgumentListExpression;
 import org.codehaus.groovy.ast.expr.ClosureExpression;
-import org.codehaus.groovy.ast.expr.ConstructorCallExpression;
 import org.codehaus.groovy.ast.expr.Expression;
-import org.codehaus.groovy.ast.expr.MethodCallExpression;
 import org.codehaus.groovy.ast.expr.VariableExpression;
 import org.codehaus.groovy.ast.stmt.BlockStatement;
 import org.codehaus.groovy.ast.stmt.EmptyStatement;
-import org.codehaus.groovy.ast.stmt.ExpressionStatement;
-import org.codehaus.groovy.ast.stmt.Statement;
-import org.codehaus.groovy.classgen.Verifier;
 import org.codehaus.groovy.control.CompilePhase;
 import org.codehaus.groovy.control.SourceUnit;
 
@@ -53,9 +48,11 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.assignS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.callThisX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.callX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.constX;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.copyStatementsWithSuperAdjustment;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.getInstanceNonPropertyFields;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.getInstancePropertyFields;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.getSuperPropertyFields;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.getSetterName;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ifS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.param;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.params;
@@ -90,6 +87,7 @@ public class MapConstructorASTTransformation extends AbstractASTTransformation {
             boolean useSetters = memberHasValue(anno, "useSetters", true);
             List<String> excludes = getMemberStringList(anno, "excludes");
             List<String> includes = getMemberStringList(anno, "includes");
+            boolean allNames = memberHasValue(anno, "allNames", true);
             if (!checkIncludeExcludeUndefinedAware(anno, excludes, includes, MY_TYPE_NAME)) return;
             if (!checkPropertyList(cNode, includes, "includes", anno, MY_TYPE_NAME, includeFields)) return;
             if (!checkPropertyList(cNode, excludes, "excludes", anno, MY_TYPE_NAME, includeFields)) return;
@@ -107,7 +105,7 @@ public class MapConstructorASTTransformation extends AbstractASTTransformation {
                 return;
             }
 
-            createConstructor(cNode, includeFields, includeProperties, includeSuperProperties, useSetters, excludes, includes, (ClosureExpression) pre, (ClosureExpression) post, source);
+            createConstructor(cNode, includeFields, includeProperties, includeSuperProperties, useSetters, excludes, includes, (ClosureExpression) pre, (ClosureExpression) post, source, allNames);
             if (pre != null) {
                 anno.setMember("pre", new ClosureExpression(new Parameter[0], new EmptyStatement()));
             }
@@ -117,7 +115,7 @@ public class MapConstructorASTTransformation extends AbstractASTTransformation {
         }
     }
 
-    public static void createConstructor(ClassNode cNode, boolean includeFields, boolean includeProperties, boolean includeSuperProperties, boolean useSetters, List<String> excludes, List<String> includes, ClosureExpression pre, ClosureExpression post, SourceUnit source) {
+    public static void createConstructor(ClassNode cNode, boolean includeFields, boolean includeProperties, boolean includeSuperProperties, boolean useSetters, List<String> excludes, List<String> includes, ClosureExpression pre, ClosureExpression post, SourceUnit source, boolean allNames) {
         List<ConstructorNode> constructors = cNode.getDeclaredConstructors();
         boolean foundEmpty = constructors.size() == 1 && constructors.get(0).getFirstStatement() == null;
         // HACK: JavaStubGenerator could have snuck in a constructor we don't want
@@ -138,19 +136,19 @@ public class MapConstructorASTTransformation extends AbstractASTTransformation {
 
         Parameter map = param(MAP_TYPE, "args");
         final BlockStatement body = new BlockStatement();
-        ClassCodeExpressionTransformer transformer = makeTransformer();
+        ClassCodeExpressionTransformer transformer = makeMapTypedArgsTransformer();
         if (pre != null) {
             ClosureExpression transformed = (ClosureExpression) transformer.transform(pre);
-            copyPreStatements(transformed, body);
+            copyStatementsWithSuperAdjustment(transformed, body);
         }
         for (FieldNode fNode : superList) {
             String name = fNode.getName();
-            if (shouldSkip(name, excludes, includes)) continue;
+            if (shouldSkip(name, excludes, includes, allNames)) continue;
             assignField(useSetters, map, body, name);
         }
         for (FieldNode fNode : list) {
             String name = fNode.getName();
-            if (shouldSkip(name, excludes, includes)) continue;
+            if (shouldSkip(name, excludes, includes, allNames)) continue;
             assignField(useSetters, map, body, name);
         }
         if (post != null) {
@@ -167,56 +165,29 @@ public class MapConstructorASTTransformation extends AbstractASTTransformation {
                 assignS(propX(varX("this"), name), callX(varX(map), "get", nameArg))));
     }
 
-    private static String getSetterName(String name) {
-        return "set" + Verifier.capitalize(name);
-    }
-
-    private static ClassCodeExpressionTransformer makeTransformer() {
+    private static ClassCodeExpressionTransformer makeMapTypedArgsTransformer() {
         return new ClassCodeExpressionTransformer() {
-                @Override
-                public Expression transform(Expression exp) {
-                    if (exp instanceof ClosureExpression) {
-                        ClosureExpression ce = (ClosureExpression) exp;
-                        ce.getCode().visit(this);
-                    } else if (exp instanceof VariableExpression) {
-                        VariableExpression ve = (VariableExpression) exp;
-                        if (ve.getName().equals("args") && ve.getAccessedVariable() instanceof DynamicVariable) {
-                            VariableExpression newVe = new VariableExpression(new Parameter(MAP_TYPE, "args"));
-                            newVe.setSourcePosition(ve);
-                            return newVe;
-                        }
-                    }
-                    return exp.transformExpression(this);
-                }
-
-                @Override
-                protected SourceUnit getSourceUnit() {
-                    return null;
-                }
-            };
-    }
-
-    private static void copyPreStatements(ClosureExpression pre, BlockStatement body) {
-        Statement preCode = pre.getCode();
-        if (preCode instanceof BlockStatement) {
-            BlockStatement block = (BlockStatement) preCode;
-            List<Statement> statements = block.getStatements();
-            for (int i = 0; i < statements.size(); i++) {
-                Statement statement = statements.get(i);
-                if (i == 0 && statement instanceof ExpressionStatement) {
-                    ExpressionStatement es = (ExpressionStatement) statement;
-                    Expression preExp = es.getExpression();
-                    if (preExp instanceof MethodCallExpression) {
-                        MethodCallExpression mce = (MethodCallExpression) preExp;
-                        String name = mce.getMethodAsString();
-                        if ("super".equals(name)) {
-                            es.setExpression(new ConstructorCallExpression(ClassNode.SUPER, mce.getArguments()));
-                        }
+            @Override
+            public Expression transform(Expression exp) {
+                if (exp instanceof ClosureExpression) {
+                    ClosureExpression ce = (ClosureExpression) exp;
+                    ce.getCode().visit(this);
+                } else if (exp instanceof VariableExpression) {
+                    VariableExpression ve = (VariableExpression) exp;
+                    if (ve.getName().equals("args") && ve.getAccessedVariable() instanceof DynamicVariable) {
+                        VariableExpression newVe = new VariableExpression(new Parameter(MAP_TYPE, "args"));
+                        newVe.setSourcePosition(ve);
+                        return newVe;
                     }
                 }
-                body.addStatement(statement);
+                return exp.transformExpression(this);
             }
-        }
+
+            @Override
+            protected SourceUnit getSourceUnit() {
+                return null;
+            }
+        };
     }
 
 }

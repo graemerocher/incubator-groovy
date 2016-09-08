@@ -36,6 +36,43 @@ class TupleConstructorTransformTest extends GroovyShellTestCase {
         """
     }
 
+    void testConstructorWithPostAndFields() {
+        assertScript '''
+            import groovy.transform.*
+
+            @ToString(includeFields=true, includeNames=true)
+            @TupleConstructor(post={ full = "$first $last" })
+            class Person {
+                final String first, last
+                private final String full
+            }
+
+            assert new Person('Dierk', 'Koenig').toString() ==
+                'Person(first:Dierk, last:Koenig, full:Dierk Koenig)'
+        '''
+    }
+
+    void testConstructorWithPreAndPost() {
+        assertScript '''
+            import groovy.transform.*
+
+            @TupleConstructor
+            class Person {
+                String first, last
+            }
+
+            @CompileStatic // optional
+            @ToString(includeSuperProperties=true)
+            @TupleConstructor(includeSuperProperties=true, pre={ super(first, last?.toLowerCase()) }, post = { this.first = this.first?.toUpperCase() })
+            class Author extends Person {
+                String bookName
+            }
+
+            assert new Author('Dierk', 'Koenig', 'ReGinA').toString() == 'Author(ReGinA, DIERK, koenig)'
+            assert new Author().toString() == 'Author(null, null, null)'
+        '''
+    }
+
     void testExistingEmptyConstructorTakesPrecedence_groovy7522() {
         assertScript """
             @groovy.transform.TupleConstructor
@@ -161,6 +198,19 @@ class TupleConstructorTransformTest extends GroovyShellTestCase {
             assert new Cat(3).toString() == 'Cat(age:3)'
             assert new Cat().toString() == 'Cat(age:0)'
             assert Cat.constructors.size() == 4
+        '''
+    }
+
+    void testInternalFieldsAreIncludedIfRequested_groovy6454() {
+        assertScript '''
+            import groovy.transform.*
+
+            @TupleConstructor(allNames = true)
+            class HasInternalName {
+                String $internal
+            }
+
+            assert new HasInternalName("foo").$internal == "foo"
         '''
     }
 

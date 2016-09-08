@@ -100,7 +100,7 @@ public class NewifyASTTransformation extends ClassCodeExpressionTransformer impl
         auto = oldAuto;
     }
 
-    private boolean determineAutoFlag(Expression autoExpr) {
+    private static boolean determineAutoFlag(Expression autoExpr) {
         return !(autoExpr instanceof ConstantExpression && ((ConstantExpression) autoExpr).getValue().equals(false));
     }
 
@@ -166,6 +166,7 @@ public class NewifyASTTransformation extends ClassCodeExpressionTransformer impl
             Expression method = transform(mce.getMethod());
             Expression object = transform(mce.getObjectExpression());
             MethodCallExpression transformed = callX(object, method, args);
+            transformed.setImplicitThis(mce.isImplicitThis());
             transformed.setSourcePosition(mce);
             return transformed;
         } else if (expr instanceof ClosureExpression) {
@@ -271,7 +272,7 @@ public class NewifyASTTransformation extends ClassCodeExpressionTransformer impl
                 || (auto && isNewMethodStyle(mce));
     }
 
-    private boolean isNewMethodStyle(MethodCallExpression mce) {
+    private static boolean isNewMethodStyle(MethodCallExpression mce) {
         final Expression obj = mce.getObjectExpression();
         final Expression meth = mce.getMethod();
         return (obj instanceof ClassExpression && meth instanceof ConstantExpression
@@ -306,7 +307,7 @@ public class NewifyASTTransformation extends ClassCodeExpressionTransformer impl
         return null;
     }
 
-    private void internalError(String message) {
+    private static void internalError(String message) {
         throw new GroovyBugError("Internal error: " + message);
     }
 

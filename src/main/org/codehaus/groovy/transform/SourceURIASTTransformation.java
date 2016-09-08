@@ -39,7 +39,7 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.callX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.constX;
 
 /**
- * Handles transformation for the @ScriptURI annotation.
+ * Handles transformation for the @SourceURI annotation.
  *
  * @author Paul King
  * @author Cedric Champeau
@@ -108,7 +108,7 @@ public class SourceURIASTTransformation extends AbstractASTTransformation {
         }
     }
 
-    private Expression getExpression(URI uri) {
+    private static Expression getExpression(URI uri) {
         return callX(URI_TYPE, "create", args(constX(uri.toString())));
     }
 

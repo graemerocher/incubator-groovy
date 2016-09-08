@@ -39,6 +39,9 @@ public class CompilerConfiguration {
 
     private static final String JDK5_CLASSNAME_CHECK = "java.lang.annotation.Annotation";
 
+    /** This (<code>"indy"</code>) is the Optimization Option value for enabling <code>invokedynamic</code> complilation. */
+    public static final String INVOKEDYNAMIC = "indy";
+
     /** This (<code>"1.4"</code>) is the value for targetBytecode to compile for a JDK 1.4. **/
     public static final String JDK4 = "1.4";
     /** This (<code>"1.5"</code>) is the value for targetBytecode to compile for a JDK 1.5. **/
@@ -80,13 +83,12 @@ public class CompilerConfiguration {
     /**
      * Encoding for source files
      */
-
     private String sourceEncoding;
+    
     /**
-     * A <code>PrintWriter</code> for communicating with the user
-     */
-
-    private PrintWriter output;
+      * The <code>PrintWriter</code> does nothing.
+      */
+     private PrintWriter output;
 
     /**
      * Directory into which to write classes
@@ -160,7 +162,7 @@ public class CompilerConfiguration {
      */
     private Map<String, Boolean> optimizationOptions;
 
-    private List<CompilationCustomizer> compilationCustomizers = new LinkedList<CompilationCustomizer>();
+    private final List<CompilationCustomizer> compilationCustomizers = new LinkedList<CompilationCustomizer>();
 
     /**
      * Sets a list of global AST transformations which should not be loaded even if they are
@@ -203,6 +205,7 @@ public class CompilerConfiguration {
             // IGNORE
         }
 
+
         String target = safeGetSystemProperty("groovy.target.directory");
         if (target != null) {
             setTargetDirectory(target);
@@ -214,12 +217,12 @@ public class CompilerConfiguration {
         } catch (Exception e) {
             // IGNORE
         }
-        if (DEFAULT!=null && Boolean.TRUE.equals(DEFAULT.getOptimizationOptions().get("indy"))) {
+        if (DEFAULT!=null && Boolean.TRUE.equals(DEFAULT.getOptimizationOptions().get(INVOKEDYNAMIC))) {
             indy = true;
         }
         Map options = new HashMap<String,Boolean>(3);
         if (indy) {
-            options.put("indy", Boolean.TRUE);
+            options.put(INVOKEDYNAMIC, Boolean.TRUE);
         }
         setOptimizationOptions(options);
     }
@@ -234,7 +237,7 @@ public class CompilerConfiguration {
      * @param key the name of the system property.
      * @return value of the system property or null
      */
-    private String safeGetSystemProperty(String key){
+    private static String safeGetSystemProperty(String key){
         return safeGetSystemProperty(key, null);
     }
 
@@ -250,7 +253,7 @@ public class CompilerConfiguration {
      * @param def a default value.
      * @return  value of the system property or null
      */
-    private String safeGetSystemProperty(String key, String def){
+    private static String safeGetSystemProperty(String key, String def){
         try {
             return System.getProperty(key, def);
         } catch (SecurityException t){
@@ -294,7 +297,6 @@ public class CompilerConfiguration {
         setTargetBytecode(configuration.getTargetBytecode());
         setDefaultScriptExtension(configuration.getDefaultScriptExtension());
         setSourceEncoding(configuration.getSourceEncoding());
-        setOutput(configuration.getOutput());
         setTargetDirectory(configuration.getTargetDirectory());
         Map<String, Object> jointCompilationOptions = configuration.getJointCompilationOptions();
         if (jointCompilationOptions != null) {
@@ -332,10 +334,6 @@ public class CompilerConfiguration {
      * CompilerConfiguration myConfiguration = new CompilerConfiguration(CompilerConfiguration.DEFAULT);
      * myConfiguration.setDebug(true);
      * </pre>
-     * Another reason to use the copy constructor rather than this one is that you
-     * must call {@link #setOutput}.  Calling <code>setOutput(null)</code> is valid and will
-     * set up a <code>PrintWriter</code> to a bit bucket.  The copy constructor will of course set
-     * the same one as the original.
      * <p>
      * <table summary="Groovy Compiler Configuration Properties">
      *   <tr>
@@ -552,14 +550,18 @@ public class CompilerConfiguration {
 
     /**
      * Gets the currently configured output writer.
+     * @deprecated not used anymore
      */
+    @Deprecated 
     public PrintWriter getOutput() {
         return this.output;
     }
 
     /**
      * Sets the output writer.
+     * @deprecated not used anymore, has no effect
      */
+    @Deprecated
     public void setOutput(PrintWriter output) {
         if (output == null) {
             this.output = new PrintWriter(NullWriter.DEFAULT);

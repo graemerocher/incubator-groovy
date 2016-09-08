@@ -74,12 +74,12 @@ public class DeclarationExpression extends BinaryExpression {
         check(left);
     }
     
-    private void check(Expression left) {
+    private static void check(Expression left) {
         if (left instanceof VariableExpression) {
             //nothing
         } else if (left instanceof TupleExpression) {
             TupleExpression tuple = (TupleExpression) left;
-            if (tuple.getExpressions().size()==0) throw new GroovyBugError("one element required for left side");
+            if (tuple.getExpressions().isEmpty()) throw new GroovyBugError("one element required for left side");
         } else {
             throw new GroovyBugError("illegal left expression for declaration: "+left);
         }

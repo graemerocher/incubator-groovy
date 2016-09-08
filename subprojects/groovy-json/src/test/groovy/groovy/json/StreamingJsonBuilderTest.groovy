@@ -65,6 +65,22 @@ class StreamingJsonBuilderTest extends GroovyTestCase {
         }
     }
 
+    void testJsonBuilderWithNestedClosures() {
+        new StringWriter().with { w ->
+            def builder = new StreamingJsonBuilder(w)
+
+            builder.response {
+                status "ok"
+                results {
+                    sectionId "world"
+                    assert delegate instanceof StreamingJsonBuilder.StreamingJsonDelegate
+                }
+            }
+
+            assert w.toString() == '{"response":{"status":"ok","results":{"sectionId":"world"}}}'
+        }
+    }
+
     void testJsonBuilderConstructor() {
         new StringWriter().with { w ->
             new StreamingJsonBuilder(w, [a: 1, b: true])
@@ -77,8 +93,22 @@ class StreamingJsonBuilderTest extends GroovyTestCase {
             new StreamingJsonBuilder(w).call {
                 a 1
                 b JsonOutput.unescaped('{"name":"Fred"}')
+                c 3
             }
-            assert w.toString() == '{"a":1,"b":{"name":"Fred"}}'
+            assert w.toString() == '{"a":1,"b":{"name":"Fred"},"c":3}'
+        }
+    }
+
+
+    @CompileStatic
+    void testUnescapedJsonCompileStatic() {
+        new StringWriter().with { w ->
+            new StreamingJsonBuilder(w).call {
+                call 'a', 1
+                call 'b', JsonOutput.unescaped('{"name":"Fred"}')
+                call 'c', 3
+            }
+            assert w.toString() == '{"a":1,"b":{"name":"Fred"},"c":3}'
         }
     }
 

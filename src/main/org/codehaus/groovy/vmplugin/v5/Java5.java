@@ -61,7 +61,7 @@ import java.util.List;
  * @author Jochen Theodorou
  */
 public class Java5 implements VMPlugin {
-    private static Class[] EMPTY_CLASS_ARRAY = new Class[0];
+    private static final Class[] EMPTY_CLASS_ARRAY = new Class[0];
     private static final Class[] PLUGIN_DGM = {PluginDefaultGroovyMethods.class};
 
     public void setAdditionalClassInformation(ClassNode cn) {
@@ -129,7 +129,7 @@ public class Java5 implements VMPlugin {
         }
     }
 
-    private ClassNode configureClass(Class c) {
+    private static ClassNode configureClass(Class c) {
         if (c.isPrimitive()) {
             return ClassHelper.make(c);
         } else {
@@ -336,12 +336,15 @@ public class Java5 implements VMPlugin {
                 return AnnotationNode.ANNOTATION_TARGET;
             case PACKAGE:
                 return AnnotationNode.PACKAGE_TARGET;
-            default:
-                throw new GroovyBugError("unsupported Target " + value);
+        }
+        if ("MODULE".equals(value.name())) {
+            return AnnotationNode.TYPE_TARGET;
+        } else {
+            throw new GroovyBugError("unsupported Target " + value);
         }
     }
 
-    private void setMethodDefaultValue(MethodNode mn, Method m) {
+    private static void setMethodDefaultValue(MethodNode mn, Method m) {
         Object defaultValue = m.getDefaultValue();
         ConstantExpression cExp = ConstantExpression.NULL;
         if (defaultValue!=null) cExp = new ConstantExpression(defaultValue);

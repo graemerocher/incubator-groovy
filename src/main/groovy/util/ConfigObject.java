@@ -181,7 +181,7 @@ public class ConfigObject extends GroovyObjectSupport implements Writable, Map, 
 
                 continue;
             } else {
-                if (configEntry instanceof Map && ((Map)configEntry).size() > 0 && value instanceof Map) {
+                if (configEntry instanceof Map && !((Map) configEntry).isEmpty() && value instanceof Map) {
                     // recur
                     doMerge((Map) configEntry, (Map) value);
                 } else {
@@ -255,7 +255,7 @@ public class ConfigObject extends GroovyObjectSupport implements Writable, Map, 
         }
     }
 
-    private void writeValue(String key, String space, String prefix, Object value, BufferedWriter out) throws IOException {
+    private static void writeValue(String key, String space, String prefix, Object value, BufferedWriter out) throws IOException {
 //        key = key.indexOf('.') > -1 ? InvokerHelper.inspect(key) : key;
         boolean isKeyword = KEYWORDS.contains(key);
         key = isKeyword ? InvokerHelper.inspect(key) : key;
@@ -274,7 +274,7 @@ public class ConfigObject extends GroovyObjectSupport implements Writable, Map, 
         out.newLine();
     }
 
-    private Properties convertValuesToString(Map props) {
+    private static Properties convertValuesToString(Map props) {
         Properties newProps = new Properties();
 
         for (Object o : props.entrySet()) {
@@ -372,7 +372,7 @@ public class ConfigObject extends GroovyObjectSupport implements Writable, Map, 
 
     /**
      * Checks if a config option is set. Example usage:
-     * <pre>
+     * <pre class="groovyTestCase">
      * def config = new ConfigSlurper().parse("foo { password='' }")
      * assert config.foo.isSet('password')
      * assert config.foo.isSet('username') == false

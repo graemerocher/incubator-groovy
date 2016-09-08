@@ -50,7 +50,6 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.constX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ctorSuperS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ctorThisS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ctorX;
-import static org.codehaus.groovy.ast.tools.GeneralUtils.getInstancePropertyFields;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.param;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.params;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.propX;
@@ -134,21 +133,22 @@ public class InitializerStrategy extends BuilderASTTransformation.AbstractBuilde
     public void build(BuilderASTTransformation transform, AnnotatedNode annotatedNode, AnnotationNode anno) {
         if (unsupportedAttribute(transform, anno, "forClass")) return;
         boolean useSetters = transform.memberHasValue(anno, "useSetters", true);
+        boolean allNames = transform.memberHasValue(anno, "allNames", true);
         if (annotatedNode instanceof ClassNode) {
-            createBuilderForAnnotatedClass(transform, (ClassNode) annotatedNode, anno, useSetters);
+            createBuilderForAnnotatedClass(transform, (ClassNode) annotatedNode, anno, useSetters, allNames);
         } else if (annotatedNode instanceof MethodNode) {
             createBuilderForAnnotatedMethod(transform, (MethodNode) annotatedNode, anno, useSetters);
         }
     }
 
-    private void createBuilderForAnnotatedClass(BuilderASTTransformation transform, ClassNode buildee, AnnotationNode anno, boolean useSetters) {
+    private void createBuilderForAnnotatedClass(BuilderASTTransformation transform, ClassNode buildee, AnnotationNode anno, boolean useSetters, boolean allNames) {
         List<String> excludes = new ArrayList<String>();
         List<String> includes = new ArrayList<String>();
         includes.add(Undefined.STRING);
         if (!getIncludeExclude(transform, anno, buildee, excludes, includes)) return;
         if (includes.size() == 1 && Undefined.isUndefined(includes.get(0))) includes = null;
-        List<FieldNode> fields = getInstancePropertyFields(buildee);
-        List<FieldNode> filteredFields = filterFields(fields, includes, excludes);
+        List<FieldNode> fields = getFields(transform, anno, buildee);
+        List<FieldNode> filteredFields = filterFields(fields, includes, excludes, allNames);
         if (filteredFields.isEmpty()) {
             transform.addError("Error during " + BuilderASTTransformation.MY_TYPE_NAME +
                     " processing: at least one property is required for this strategy", anno);
@@ -191,11 +191,11 @@ public class InitializerStrategy extends BuilderASTTransformation.AbstractBuilde
         }
     }
 
-    private String getBuilderClassName(ClassNode buildee, AnnotationNode anno) {
+    private static String getBuilderClassName(ClassNode buildee, AnnotationNode anno) {
         return getMemberStringValue(anno, "builderClassName", buildee.getNameWithoutPackage() + "Initializer");
     }
 
-    private void addFields(ClassNode buildee, List<FieldNode> filteredFields, ClassNode builder) {
+    private static void addFields(ClassNode buildee, List<FieldNode> filteredFields, ClassNode builder) {
         for (FieldNode filteredField : filteredFields) {
             builder.addField(createFieldCopy(buildee, filteredField));
         }
@@ -214,7 +214,7 @@ public class InitializerStrategy extends BuilderASTTransformation.AbstractBuilde
         builder.addMethod(createBuildMethod(builder, buildMethodName, fieldNodes));
     }
 
-    private List<FieldNode> convertParamsToFields(ClassNode builder, Parameter[] parameters) {
+    private static List<FieldNode> convertParamsToFields(ClassNode builder, Parameter[] parameters) {
         List<FieldNode> fieldNodes = new ArrayList<FieldNode>();
         for(Parameter parameter: parameters) {
             Map<String,ClassNode> genericsSpec = createGenericsSpec(builder);
@@ -226,7 +226,7 @@ public class InitializerStrategy extends BuilderASTTransformation.AbstractBuilde
         return fieldNodes;
     }
 
-    private ClassNode createInnerHelperClass(ClassNode buildee, String builderClassName, int fieldsSize) {
+    private static ClassNode createInnerHelperClass(ClassNode buildee, String builderClassName, int fieldsSize) {
         final String fullName = buildee.getName() + "$" + builderClassName;
         ClassNode builder = new InnerClassNode(buildee, fullName, PUBLIC_STATIC, OBJECT_TYPE);
         GenericsType[] gtypes = new GenericsType[fieldsSize];
@@ -346,7 +346,7 @@ public class InitializerStrategy extends BuilderASTTransformation.AbstractBuilde
         ));
     }
 
-    private GenericsType makePlaceholder(int i) {
+    private static GenericsType makePlaceholder(int i) {
         ClassNode type = ClassHelper.makeWithoutCaching("T" + i);
         type.setRedirect(OBJECT_TYPE);
         type.setGenericsPlaceHolder(true);
@@ -360,10 +360,10 @@ public class InitializerStrategy extends BuilderASTTransformation.AbstractBuilde
         return new FieldNode(fNode.getName(), fNode.getModifiers(), correctedType, buildee, DEFAULT_INITIAL_VALUE);
     }
 
-    private static List<FieldNode> filterFields(List<FieldNode> fieldNodes, List<String> includes, List<String> excludes) {
+    private static List<FieldNode> filterFields(List<FieldNode> fieldNodes, List<String> includes, List<String> excludes, boolean allNames) {
         List<FieldNode> fields = new ArrayList<FieldNode>();
         for (FieldNode fNode : fieldNodes) {
-            if (AbstractASTTransformation.shouldSkipUndefinedAware(fNode.getName(), excludes, includes)) continue;
+            if (AbstractASTTransformation.shouldSkipUndefinedAware(fNode.getName(), excludes, includes, allNames)) continue;
             fields.add(fNode);
         }
         return fields;

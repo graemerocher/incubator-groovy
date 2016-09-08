@@ -31,8 +31,8 @@ import java.lang.annotation.Target;
  * Limitations" for more details.
  * <p>
  * It allows you to write classes in this shortened form:
- * <pre>
- * {@code @TupleConstructor} class Customer {
+ * <pre class="groovyTestCase">
+ * {@code @groovy.transform.TupleConstructor} class Customer {
  *     String first, last
  *     int age
  *     Date since
@@ -55,6 +55,103 @@ import java.lang.annotation.Target;
  * (if {@code includeSuperProperties} is set) followed by the properties of the class followed
  * by the fields of the class (if {@code includeFields} is set). Within each grouping the order
  * is as attributes appear within the respective class.
+ * <p>More examples:</p>
+ * <pre class="groovyTestCase">
+ * //--------------------------------------------------------------------------
+ * import groovy.transform.TupleConstructor
+ *
+ * &#64;TupleConstructor()
+ * class Person {
+ *     String name
+ *     List likes
+ *     private boolean active = false
+ * }
+ *
+ * def person = new Person('mrhaki', ['Groovy', 'Java'])
+ *
+ * assert person.name == 'mrhaki'
+ * assert person.likes == ['Groovy', 'Java']
+ *
+ * person = new Person('mrhaki')
+ *
+ * assert person.name == 'mrhaki'
+ * assert !person.likes
+ * </pre>
+ * <pre class="groovyTestCase">
+ * //--------------------------------------------------------------------------
+ * // includeFields in the constructor creation.
+ * import groovy.transform.TupleConstructor
+ *
+ * &#64;TupleConstructor(includeFields=true)
+ * class Person {
+ *     String name
+ *     List likes
+ *     private boolean active = false
+ *
+ *     boolean isActivated() { active }
+ * }
+ *
+ * def person = new Person('mrhaki', ['Groovy', 'Java'], true)
+ *
+ * assert person.name == 'mrhaki'
+ * assert person.likes == ['Groovy', 'Java']
+ * assert person.activated
+ * </pre>
+ * <pre class="groovyTestCase">
+ * //--------------------------------------------------------------------------
+ * // use force attribute to force creation of constructor
+ * // even if we define our own constructors.
+ * import groovy.transform.TupleConstructor
+ *
+ * &#64;TupleConstructor(force=true)
+ * class Person {
+ *     String name
+ *     List likes
+ *     private boolean active = false
+ *
+ *     Person(boolean active) {
+ *         this.active = active
+ *     }
+ *
+ *     boolean isActivated() { active }
+ * }
+ *
+ * def person = new Person('mrhaki', ['Groovy', 'Java'])
+ *
+ * assert person.name == 'mrhaki'
+ * assert person.likes == ['Groovy', 'Java']
+ * assert !person.activated
+ *
+ * person = new Person(true)
+ *
+ * assert person.activated
+ * </pre>
+ * <pre class="groovyTestCase">
+ * //--------------------------------------------------------------------------
+ * // include properties and fields from super class.
+ * import groovy.transform.TupleConstructor
+ *
+ * &#64;TupleConstructor(includeFields=true)
+ * class Person {
+ *     String name
+ *     List likes
+ *     private boolean active = false
+ *
+ *     boolean isActivated() { active }
+ * }
+ *
+ * &#64;TupleConstructor(callSuper=true, includeSuperProperties=true, includeSuperFields=true)
+ * class Student extends Person {
+ *     List courses
+ * }
+ *
+ * def student = new Student('mrhaki', ['Groovy', 'Java'], true, ['IT'])
+ *
+ * assert student.name == 'mrhaki'
+ * assert student.likes == ['Groovy', 'Java']
+ * assert student.activated
+ * assert student.courses == ['IT']
+ * </pre>
  * <p>
  * Known Limitations:
  * <ul>
@@ -116,8 +213,9 @@ public @interface TupleConstructor {
     boolean includeSuperProperties() default false;
 
     /**
-     * Should super properties be called within a call to the parent constructor.
-     * rather than set as properties
+     * Should super properties be called within a call to the parent constructor
+     * rather than set as properties. Typically used in combination with {@code includeSuperProperties}.
+     * Can't be true if using {@code pre} with a {@code super} first statement.
      */
     boolean callSuper() default false;
 
@@ -154,4 +252,27 @@ public @interface TupleConstructor {
      * made null-safe wrt the parameter.
      */
     boolean useSetters() default false;
+
+    /**
+     * Whether to include all fields and/or properties within the constructor, including those with names that are
+     * considered internal.
+     *
+     * @since 2.5.0
+     */
+    boolean allNames() default false;
+
+    /**
+     * A Closure containing statements which will be prepended to the generated constructor. The first statement
+     * within the Closure may be {@code super(someArgs)} in which case the no-arg super constructor won't be called.
+     *
+     * @since 2.5.0
+     */
+    Class pre();
+
+    /**
+     * A Closure containing statements which will be appended to the end of the generated constructor. Useful for validation steps or tweaking the populated fields/properties.
+     *
+     * @since 2.5.0
+     */
+    Class post();
 }

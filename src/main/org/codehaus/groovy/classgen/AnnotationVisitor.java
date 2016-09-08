@@ -40,8 +40,8 @@ import org.codehaus.groovy.vmplugin.VMPluginFactory;
  * @author <a href='mailto:the[dot]mindstorm[at]gmail[dot]com'>Alex Popescu</a>
  */
 public class AnnotationVisitor {
-    private SourceUnit source;
-    private ErrorCollector errorCollector;
+    private final SourceUnit source;
+    private final ErrorCollector errorCollector;
     private AnnotationNode annotation;
     private ClassNode reportClass;
 
@@ -169,7 +169,7 @@ public class AnnotationVisitor {
         // if size is >1, then the method was overwritten or something, we ignore that
         // if it is an error, we have to test it at another place. But size==0 is
         // an error, because it means that no such attribute exists.
-        if (methods.size() == 0) {
+        if (methods.isEmpty()) {
             addError("'" + attrName + "'is not part of the annotation " + classNode, node);
             return ClassHelper.OBJECT_TYPE;
         }
@@ -177,7 +177,7 @@ public class AnnotationVisitor {
         return method.getReturnType();
     }
 
-    private boolean isValidAnnotationClass(ClassNode node) {
+    private static boolean isValidAnnotationClass(ClassNode node) {
         return node.implementsInterface(ClassHelper.Annotation_TYPE);
     }
 
@@ -283,7 +283,7 @@ public class AnnotationVisitor {
         }
     }
 
-    private boolean hasCompatibleType(ClassNode attrType, ClassNode wrapperType) {
+    private static boolean hasCompatibleType(ClassNode attrType, ClassNode wrapperType) {
         return wrapperType.isDerivedFrom(ClassHelper.getWrapper(attrType));
     }
 

@@ -25,6 +25,7 @@ import org.codehaus.groovy.ast.*;
 import org.codehaus.groovy.ast.expr.*;
 import org.codehaus.groovy.ast.stmt.*;
 import org.codehaus.groovy.GroovyBugError;
+import org.codehaus.groovy.ast.tools.ParameterUtils;
 import org.codehaus.groovy.classgen.AsmClassGenerator;
 import org.codehaus.groovy.classgen.Verifier;
 import org.codehaus.groovy.control.SourceUnit;
@@ -40,7 +41,6 @@ import static org.codehaus.groovy.ast.tools.WideningCategories.*;
 
 /**
  * A class to write out the optimized statements
- * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
  */
 public class OptimizingStatementWriter extends StatementWriter {
     
@@ -72,7 +72,7 @@ public class OptimizingStatementWriter extends StatementWriter {
         }
     }
 
-    private static MethodCaller[] guards = {
+    private static final MethodCaller[] guards = {
         null,
         MethodCaller.newStatic(BytecodeInterface8.class, "isOrigInt"),
         MethodCaller.newStatic(BytecodeInterface8.class, "isOrigL"),
@@ -86,7 +86,7 @@ public class OptimizingStatementWriter extends StatementWriter {
     
     private static final MethodCaller disabledStandardMetaClass = MethodCaller.newStatic(BytecodeInterface8.class, "disabledStandardMetaClass");
     private boolean fastPathBlocked = false;
-    private WriterController controller;
+    private final WriterController controller;
 
     public OptimizingStatementWriter(WriterController controller) {
         super(controller);
@@ -424,7 +424,7 @@ public class OptimizingStatementWriter extends StatementWriter {
             private boolean[] involvedTypes = new boolean[typeMapKeyNames.length];
         }
         private OptimizeFlagsEntry current = new OptimizeFlagsEntry();
-        private LinkedList<OptimizeFlagsEntry> olderEntries = new LinkedList<OptimizeFlagsEntry>();
+        private final LinkedList<OptimizeFlagsEntry> olderEntries = new LinkedList<OptimizeFlagsEntry>();
         public void push() {
             olderEntries.addLast(current);
             current = new OptimizeFlagsEntry();
@@ -850,7 +850,7 @@ public class OptimizingStatementWriter extends StatementWriter {
             List<ConstructorNode> cl = node.getDeclaredConstructors();
             MethodNode res = null;
             for (ConstructorNode cn : cl) {
-                if (parametersEqual(cn.getParameters(), paraTypes)) {
+                if (ParameterUtils.parametersEqual(cn.getParameters(), paraTypes)) {
                     res = cn;
                     break;
                 }
@@ -859,20 +859,6 @@ public class OptimizingStatementWriter extends StatementWriter {
             return null;
         }
 
-        private static boolean parametersEqual(Parameter[] a, Parameter[] b) {
-            if (a.length == b.length) {
-                boolean answer = true;
-                for (int i = 0; i < a.length; i++) {
-                    if (!a[i].getType().equals(b[i].getType())) {
-                        answer = false;
-                        break;
-                    }
-                }
-                return answer;
-            }
-            return false;
-        }
-        
         private static boolean validTypeForCall(ClassNode type) {
             // do call only for final classes and primitive types
             if (isPrimitiveType(type)) return true;

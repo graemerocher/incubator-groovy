@@ -989,6 +989,116 @@ class GenericsSTCTest extends StaticTypeCheckingTestCase {
         '''
     }
 
+    void testCorrectlyBoundedByWildcardGenericParameterType() {
+        assertScript '''
+            class Foo {
+                static <T extends List<?>> void bar(T a) {}
+            }
+            Foo.bar(['abc'])
+        '''
+    }
+
+    void testCorrectlyBoundedByExtendsGenericParameterType() {
+        assertScript '''
+            class Foo {
+                static <T extends List<? extends CharSequence>> void bar(T a) {}
+            }
+            Foo.bar(['abc'])
+        '''
+    }
+
+    void testCorrectlyBoundedBySuperGenericParameterType() {
+        assertScript '''
+            class Foo {
+                static <T extends List<? super CharSequence>> void bar(T a) {}
+            }
+            Foo.bar([new Object()])
+        '''
+    }
+
+    void testCorrectlyBoundedByExtendsPlaceholderParameterType() {
+        assertScript '''
+            class Foo {
+                static <T extends List<? extends CharSequence>> void bar(T a) {}
+            }
+            class Baz {
+                static <T extends List<? extends String>> void qux(T a) {
+                    Foo.bar(a)
+                }
+            }
+            Baz.qux(['abc'])
+        '''
+    }
+
+    void testCorrectlyBoundedBySuperPlaceholderParameterType() {
+        assertScript '''
+            class Foo {
+                static <T extends List<? super CharSequence>> void bar(T a) {}
+            }
+            class Baz {
+                static <T extends List<? super Object>> void qux(T a) {
+                    Foo.bar(a)
+                }
+            }
+            Baz.qux([new Object()])
+        '''
+    }
+
+    void testCorrectlyBoundedSubtypeGenericParameterType() {
+        assertScript '''
+            class Foo {
+                static <T extends Collection<? extends CharSequence>> void bar(T a) {}
+            }
+            Foo.bar(['abc'])
+        '''
+    }
+
+    void testOutOfBoundsByExtendsGenericParameterType() {
+        shouldFailWithMessages '''
+            class Foo {
+                static <T extends List<? extends CharSequence>> void bar(T a) {}
+            }
+            Foo.bar([new Object()])
+        ''', 'Cannot call <T extends java.util.List<? extends java.lang.CharSequence>> Foo#bar(T) with arguments [java.util.List <java.lang.Object>]'
+    }
+
+    void testOutOfBoundsBySuperGenericParameterType() {
+        shouldFailWithMessages '''
+            class Foo {
+                static <T extends List<? super CharSequence>> void bar(T a) {}
+            }
+            Foo.bar(['abc'])
+        ''', 'Cannot call <T extends java.util.List<? super java.lang.CharSequence>> Foo#bar(T) with arguments [java.util.List <java.lang.String>]'
+    }
+
+    void testOutOfBoundsByExtendsPlaceholderParameterType() {
+        shouldFailWithMessages '''
+            class Foo {
+                static <T extends List<? extends CharSequence>> void bar(T a) {}
+            }
+            class Baz {
+                static <T extends List<Object>> void qux(T a) {
+                    Foo.bar(a)
+                }
+            }
+            Baz.qux([new Object()])
+        ''', 'Cannot call <T extends java.util.List<? extends java.lang.CharSequence>> Foo#bar(T) with arguments [T]'
+    }
+
+    void testOutOfBoundsBySuperPlaceholderParameterType() {
+        shouldFailWithMessages '''
+            class Foo {
+                static <T extends List<? super CharSequence>> void bar(T a) {}
+            }
+            class Baz {
+                static <T extends List<String>> void qux(T a) {
+                    Foo.bar(a)
+                }
+            }
+            Baz.qux(['abc'])
+        ''', 'Cannot call <T extends java.util.List<? super java.lang.CharSequence>> Foo#bar(T) with arguments [T]'
+    }
+
     // GROOVY-5721
     void testExtractComponentTypeFromSubclass() {
         assertScript '''
@@ -1198,7 +1308,7 @@ class GenericsSTCTest extends StaticTypeCheckingTestCase {
             class Done extends Base<Done> { }
             class Next<H, T extends Base<T>> extends Base<Next<H, T>> {
                 H head; T tail
-                static Next<H, T> next(H h, T t) { new Next<H, T>(head:h, tail:t) }
+                static <H, T extends Base<T>> Next<H, T> next(H h, T t) { new Next<H, T>(head:h, tail:t) }
                 String toString() { "Next($head, ${tail.toString()})" }
             }
 
@@ -1432,11 +1542,16 @@ class GenericsSTCTest extends StaticTypeCheckingTestCase {
     // GROOVY-6135
     void testGenericField() {
         assertScript '''
-            import javax.xml.ws.Holder
-
-            Holder<Integer> holder = new Holder<Integer>()
-            holder.value = 5
-            assert holder.value > 4
+            class MyClass {
+                static void main(args) {
+                    Holder<Integer> holder = new Holder<Integer>()
+                    holder.value = 5
+                    assert holder.value > 4
+                }
+                private static class Holder<T> {
+                    T value
+                }
+            }
         '''
     }
 
@@ -1687,7 +1802,32 @@ assert result == 'ok'
                 }
             }
             assert new LongWrapper<Long>(42L).value == 42L
-'''
+        '''
+    }
+
+    //GROOVY-7804
+    void testParameterlessClosureToGenericSAMTypeArgumentCoercion() {
+        assertScript '''
+            interface Supplier<T> {
+                public <T> T get()
+            }
+
+            static <T> T doGet(Supplier<T> supplier) { supplier.get() }
+
+            assert doGet { -> 'foo' } == 'foo'
+        '''
+    }
+
+    //GROOVY-7713
+    void testClosureReturnNull() {
+        assertScript '''
+            Closure<String> cl = {
+                if (hashCode() > 0) {
+                    return null
+                }
+                'foo'
+            }
+        '''
     }
 
     static class MyList extends LinkedList<String> {}

@@ -34,7 +34,6 @@ import org.codehaus.groovy.classgen.Verifier;
 import org.codehaus.groovy.classgen.asm.*;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.codehaus.groovy.syntax.SyntaxException;
-import org.codehaus.groovy.syntax.Token;
 import org.codehaus.groovy.transform.sc.StaticCompilationMetadataKeys;
 import org.codehaus.groovy.transform.sc.StaticCompilationVisitor;
 import org.codehaus.groovy.transform.sc.TemporaryVariableExpression;
@@ -79,7 +78,7 @@ public class StaticInvocationWriter extends InvocationWriter {
 
     private final AtomicInteger labelCounter = new AtomicInteger();
 
-    private final WriterController controller;
+    final WriterController controller;
 
     private MethodCallExpression currentCall;
 
@@ -178,8 +177,11 @@ public class StaticInvocationWriter extends InvocationWriter {
         ClassNode lookupClassNode;
         if (target.isProtected()) {
             lookupClassNode = controller.getClassNode();
-            if (controller.isInClosure()) {
+            while (lookupClassNode != null && !lookupClassNode.isDerivedFrom(target.getDeclaringClass())) {
                 lookupClassNode = lookupClassNode.getOuterClass();
+            }
+            if (lookupClassNode == null) {
+                return false;
             }
         } else {
             lookupClassNode = target.getDeclaringClass().redirect();
@@ -188,13 +190,8 @@ public class StaticInvocationWriter extends InvocationWriter {
         MethodNode bridge = bridges==null?null:bridges.get(target);
         if (bridge != null) {
             Expression fixedReceiver = receiver;
-            ClassNode classNode = implicitThis?controller.getClassNode():null;
-            ClassNode declaringClass = bridge.getDeclaringClass();
-            if (implicitThis && !controller.isInClosure()
-                    && !classNode.isDerivedFrom(declaringClass)
-                    && !classNode.implementsInterface(declaringClass)
-                    && classNode instanceof InnerClassNode) {
-                fixedReceiver = new PropertyExpression(new ClassExpression(classNode.getOuterClass()), "this");
+            if (implicitThis && !controller.isInClosure()) {
+                fixedReceiver = new PropertyExpression(new ClassExpression(lookupClassNode), "this");
             }
             ArgumentListExpression newArgs = new ArgumentListExpression(target.isStatic()?new ConstantExpression(null):fixedReceiver);
             for (Expression expression : args.getExpressions()) {
@@ -285,6 +282,8 @@ public class StaticInvocationWriter extends InvocationWriter {
                     controller.getSourceUnit().addError(
                             new SyntaxException("Method " + target.getName() + " is protected in " + target.getDeclaringClass().toString(false),
                                     src.getLineNumber(), src.getColumnNumber(), src.getLastLineNumber(), src.getLastColumnNumber()));
+                } else if (!node.isDerivedFrom(target.getDeclaringClass()) && tryBridgeMethod(target, receiver, implicitThis, args)) {
+                    return true;
                 }
             }
             if (receiver != null) {
@@ -333,7 +332,7 @@ public class StaticInvocationWriter extends InvocationWriter {
         AsmClassGenerator acg = controller.getAcg();
         TypeChooser typeChooser = controller.getTypeChooser();
         OperandStack operandStack = controller.getOperandStack();
-        ClassNode lastArgType = argumentList.size()>0?
+        ClassNode lastArgType = !argumentList.isEmpty() ?
                 typeChooser.resolveType(argumentList.get(argumentList.size()-1), controller.getClassNode()):null;
         if (lastParaType.isArray()
                 && ((argumentList.size() > para.length)
@@ -344,7 +343,6 @@ public class StaticInvocationWriter extends InvocationWriter {
                 ) {
             int stackLen = operandStack.getStackLength() + argumentList.size();
             MethodVisitor mv = controller.getMethodVisitor();
-            MethodVisitor orig = mv;
             //mv = new org.objectweb.asm.util.TraceMethodVisitor(mv);
             controller.setMethodVisitor(mv);
             // varg call
@@ -415,7 +413,7 @@ public class StaticInvocationWriter extends InvocationWriter {
         }
     }
 
-    private boolean isNullConstant(final Expression expression) {
+    private static boolean isNullConstant(final Expression expression) {
         return (expression instanceof ConstantExpression && ((ConstantExpression) expression).getValue() == null);
     }
 
@@ -596,25 +594,6 @@ public class StaticInvocationWriter extends InvocationWriter {
             return true;
         }
         return false;
-    }
-
-    private static void pushZero(final MethodVisitor mv, final ClassNode type) {
-        boolean isInt = ClassHelper.int_TYPE.equals(type);
-        boolean isShort = ClassHelper.short_TYPE.equals(type);
-        boolean isByte = ClassHelper.byte_TYPE.equals(type);
-        if (isInt || isShort || isByte) {
-            mv.visitInsn(ICONST_0);
-        } else if (ClassHelper.long_TYPE.equals(type)) {
-            mv.visitInsn(LCONST_0);
-        } else if (ClassHelper.float_TYPE.equals(type)) {
-            mv.visitInsn(FCONST_0);
-        } else if (ClassHelper.double_TYPE.equals(type)) {
-            mv.visitInsn(DCONST_0);
-        } else if (ClassHelper.boolean_TYPE.equals(type)) {
-            mv.visitInsn(ICONST_0);
-        } else {
-            mv.visitLdcInsn(0);
-        }
     }
 
     private class CheckcastReceiverExpression extends Expression {

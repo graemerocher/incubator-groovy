@@ -217,6 +217,48 @@ import groovy.transform.TypeCheckingMode//import org.codehaus.groovy.classgen.as
         '''
     }
 
+    //GROOVY-7863
+    void testDoublyNestedPrivateMethodAccess() {
+        assertScript '''
+            class A {
+                private int bar() { 123 }
+
+                class B {
+
+                    int testInner() { new C().barInner() }
+
+                    class C {
+                        int barInner() { bar() }
+                    }
+                }
+
+                int test() {
+                    new B().testInner()
+                }
+            }
+            assert new A().test() == 123
+        '''
+    }
+
+    //GROOVY-7862
+    void testProtectedCallFromInnerClassInSeparatePackage() {
+        assertScript '''
+            import org.codehaus.groovy.classgen.asm.sc.MethodCallsStaticCompilationTest.Base
+            class SubBase extends Base {
+                class Inner {
+                    int test() {
+                        foo()
+                    }
+                }
+
+                int innerTest() {
+                    new Inner().test()
+                }
+            }
+            assert new SubBase().innerTest() == 123
+        '''
+    }
+
     public static class Base {
         protected int foo() {
             123

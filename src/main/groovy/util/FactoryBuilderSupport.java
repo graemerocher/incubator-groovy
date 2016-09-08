@@ -68,7 +68,7 @@ public abstract class FactoryBuilderSupport extends Binding {
         public int compare(final Method o1, final Method o2) {
             int cmp = o1.getName().compareTo(o2.getName());
             if (cmp != 0) return cmp;
-            cmp = o1.getParameterTypes().length - o1.getParameterTypes().length;
+            cmp = o1.getParameterTypes().length - o2.getParameterTypes().length;
             return cmp;
         }
     };
@@ -131,12 +131,12 @@ public abstract class FactoryBuilderSupport extends Binding {
         }
     }
 
-    private ThreadLocal<LinkedList<Map<String, Object>>> contexts = new ThreadLocal<LinkedList<Map<String, Object>>>();
+    private final ThreadLocal<LinkedList<Map<String, Object>>> contexts = new ThreadLocal<LinkedList<Map<String, Object>>>();
     protected LinkedList<Closure> attributeDelegates = new LinkedList<Closure>(); //
-    private List<Closure> disposalClosures = new ArrayList<Closure>(); // because of reverse iteration use ArrayList
-    private Map<String, Factory> factories = new HashMap<String, Factory>();
+    private final List<Closure> disposalClosures = new ArrayList<Closure>(); // because of reverse iteration use ArrayList
+    private final Map<String, Factory> factories = new HashMap<String, Factory>();
     private Closure nameMappingClosure;
-    private ThreadLocal<FactoryBuilderSupport> localProxyBuilder = new ThreadLocal<FactoryBuilderSupport>();
+    private final ThreadLocal<FactoryBuilderSupport> localProxyBuilder = new ThreadLocal<FactoryBuilderSupport>();
     private FactoryBuilderSupport globalProxyBuilder;
     protected LinkedList<Closure> preInstantiateDelegates = new LinkedList<Closure>();
     protected LinkedList<Closure> postInstantiateDelegates = new LinkedList<Closure>();
@@ -836,18 +836,18 @@ public abstract class FactoryBuilderSupport extends Binding {
             // the builder and there is nothing we can really do to prevent
             // that
 
-            if ((list.size() > 0)
+            if ((!list.isEmpty())
                     && (list.get(0) instanceof LinkedHashMap)) {
                 namedArgs = (Map) list.get(0);
                 list = list.subList(1, list.size());
             }
-            if ((list.size() > 0)
+            if ((!list.isEmpty())
                     && (list.get(list.size() - 1) instanceof Closure)) {
                 closure = (Closure) list.get(list.size() - 1);
                 list = list.subList(0, list.size() - 1);
             }
             Object arg;
-            if (list.size() == 0) {
+            if (list.isEmpty()) {
                 arg = null;
             } else if (list.size() == 1) {
                 arg = list.get(0);

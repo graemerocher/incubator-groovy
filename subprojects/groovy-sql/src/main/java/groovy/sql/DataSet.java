@@ -76,14 +76,14 @@ public class DataSet extends Sql {
     private Closure sort;
     private boolean reversed = false;
     private DataSet parent;
-    private String table;
+    private final String table;
     private SqlWhereVisitor visitor;
     private SqlOrderByVisitor sortVisitor;
     private String sql;
     private List<Object> params;
     private List<Object> batchData;
     private Set<String> batchKeys;
-    private Sql delegate;
+    private final Sql delegate;
     private boolean withinDataSetBatch = false;
 
     public DataSet(Sql sql, Class type) {
@@ -211,7 +211,7 @@ public class DataSet extends Sql {
         withinDataSetBatch = true;
         closure.call(this);
         withinDataSetBatch = false;
-        if (batchData.size() == 0) {
+        if (batchData.isEmpty()) {
             return EMPTY_INT_ARRAY;
         }
         Closure transformedClosure = new Closure(null) {
@@ -232,7 +232,7 @@ public class DataSet extends Sql {
      */
     public void add(Map<String, Object> map) throws SQLException {
         if (withinDataSetBatch) {
-            if (batchData.size() == 0) {
+            if (batchData.isEmpty()) {
                 batchKeys = map.keySet();
             } else {
                 if (!map.keySet().equals(batchKeys)) {
@@ -423,7 +423,7 @@ public class DataSet extends Sql {
         return sortVisitor;
     }
 
-    private void visit(Closure closure, CodeVisitorSupport visitor) {
+    private static void visit(Closure closure, CodeVisitorSupport visitor) {
         if (closure != null) {
             ClassNode classNode = closure.getMetaClass().getClassNode();
             if (classNode == null) {

@@ -288,7 +288,7 @@ public class SourceUnit extends ProcessingUnit {
         }
     }
 
-    private void saveAsXML(String name, ModuleNode ast) {
+    private static void saveAsXML(String name, ModuleNode ast) {
         XStreamUtils.serialize(name, ast);
     }
 
@@ -296,7 +296,7 @@ public class SourceUnit extends ProcessingUnit {
 
     /**
      * Returns a sampling of the source at the specified line and column,
-     * of null if it is unavailable.
+     * or null if it is unavailable.
      */
     public String getSample(int line, int column, Janitor janitor) {
         String sample = null;

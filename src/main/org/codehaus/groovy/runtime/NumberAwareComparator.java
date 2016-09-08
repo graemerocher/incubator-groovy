@@ -36,6 +36,8 @@ public class NumberAwareComparator<T> implements Comparator<T> {
             /* ignore */
         } catch (GroovyRuntimeException gre) {
             /* ignore */
+        } catch (IllegalArgumentException iae) {
+            /* ignore */
         }
         // since the object does not have a valid compareTo method
         // we compare using the hashcodes. null cases are handled by
@@ -48,6 +50,7 @@ public class NumberAwareComparator<T> implements Comparator<T> {
         // may mean the removal of x or y in a sorting operation, which we don't want.
         int x1 = o1.hashCode();
         int x2 = o2.hashCode();
+        if (x1 == x2 && o1.equals(o2)) return 0;
         if (x1 > x2) return 1;
         return -1;
     }

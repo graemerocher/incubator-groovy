@@ -52,6 +52,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
     /**
      * @deprecated Use {@link ExtensionModuleScanner#MODULE_META_INF_FILE instead}
      */
+    @Deprecated
     public static final String MODULE_META_INF_FILE = "META-INF/services/org.codehaus.groovy.runtime.ExtensionModule";
 
     private final boolean useAccessible;
@@ -142,7 +143,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
         });
    }
 
-    private void refreshMopMethods(final Map<CachedClass, List<MetaMethod>> map) {
+    private static void refreshMopMethods(final Map<CachedClass, List<MetaMethod>> map) {
         for (Map.Entry<CachedClass, List<MetaMethod>> e : map.entrySet()) {
             CachedClass cls = e.getKey();
             cls.setNewMopMethods(e.getValue());
@@ -412,7 +413,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
      * @param includeExtension
      * @return the registry
      */
-    public static MetaClassRegistry getInstance(int includeExtension) {
+    public static synchronized MetaClassRegistry getInstance(int includeExtension) {
         if (includeExtension != DONT_LOAD_DEFAULT) {
             if (instanceInclude == null) {
                 instanceInclude = new MetaClassRegistryImpl();

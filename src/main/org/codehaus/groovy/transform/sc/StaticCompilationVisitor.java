@@ -27,9 +27,13 @@ import org.codehaus.groovy.ast.stmt.EmptyStatement;
 import org.codehaus.groovy.ast.stmt.ExpressionStatement;
 import org.codehaus.groovy.ast.stmt.ForStatement;
 import org.codehaus.groovy.ast.stmt.Statement;
+import org.codehaus.groovy.ast.tools.GeneralUtils;
+import org.codehaus.groovy.classgen.GeneratorContext;
 import org.codehaus.groovy.classgen.asm.*;
 import org.codehaus.groovy.classgen.asm.sc.StaticCompilationMopWriter;
 import org.codehaus.groovy.classgen.asm.sc.StaticTypesTypeChooser;
+import org.codehaus.groovy.control.CompilationFailedException;
+import org.codehaus.groovy.control.CompilationUnit;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.transform.stc.StaticTypeCheckingSupport;
 import org.codehaus.groovy.transform.stc.StaticTypeCheckingVisitor;
@@ -101,6 +105,21 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
         }
     }
 
+    private void addDynamicOuterClassAccessorsCallback(final ClassNode outer) {
+        if (outer != null && !isStaticallyCompiled(outer)
+                && outer.getNodeMetaData(StaticCompilationMetadataKeys.DYNAMIC_OUTER_NODE_CALLBACK) == null) {
+            outer.putNodeMetaData(StaticCompilationMetadataKeys.DYNAMIC_OUTER_NODE_CALLBACK, new CompilationUnit.PrimaryClassNodeOperation() {
+                @Override
+                public void call(SourceUnit source, GeneratorContext context, ClassNode classNode) throws CompilationFailedException {
+                    if (classNode == outer) {
+                        addPrivateBridgeMethods(classNode);
+                        addPrivateFieldsAccessors(classNode);
+                    }
+                }
+            });
+        }
+    }
+
     @Override
     public void visitClass(final ClassNode node) {
         boolean skip = shouldSkipClassNode(node);
@@ -121,6 +140,7 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
         }
         super.visitClass(node);
         addPrivateFieldAndMethodAccessors(node);
+        if (isStaticallyCompiled(node)) addDynamicOuterClassAccessorsCallback(node.getOuterClass());
         classNode = oldCN;
     }
 
@@ -135,7 +155,7 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
      * If we are in a constructor, that is static compiled, but in a class, that
      * is not, it may happen that init code from object initializers, fields
      * or properties is added into the constructor code. The backend assumes
-     * a purely static contructor, so it may fail if it encounters dynamic
+     * a purely static constructor, so it may fail if it encounters dynamic
      * code here. Thus we make this kind of code fail
      */
     private void checkForConstructorWithCSButClassWithout(MethodNode node) {
@@ -162,38 +182,58 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
         }
         super.visitMethod(node);
         checkForConstructorWithCSButClassWithout(node);
+        if (isStaticallyCompiled(node)) addDynamicOuterClassAccessorsCallback(node.getDeclaringClass());
     }
 
     /**
-     * Adds special accessors for private constants so that inner classes can retrieve them.
+     * Adds special accessors and mutators for private fields so that inner classes can get/set them
      */
     @SuppressWarnings("unchecked")
-    private void addPrivateFieldsAccessors(ClassNode node) {
+    private static void addPrivateFieldsAccessors(ClassNode node) {
         Set<ASTNode> accessedFields = (Set<ASTNode>) node.getNodeMetaData(StaticTypesMarker.PV_FIELDS_ACCESS);
-        if (accessedFields==null) return;
-        Map<String, MethodNode> privateConstantAccessors = (Map<String, MethodNode>) node.getNodeMetaData(PRIVATE_FIELDS_ACCESSORS);
-        if (privateConstantAccessors!=null) {
+        Set<ASTNode> mutatedFields = (Set<ASTNode>) node.getNodeMetaData(StaticTypesMarker.PV_FIELDS_MUTATION);
+        if (accessedFields == null && mutatedFields == null) return;
+        Map<String, MethodNode> privateFieldAccessors = (Map<String, MethodNode>) node.getNodeMetaData(PRIVATE_FIELDS_ACCESSORS);
+        Map<String, MethodNode> privateFieldMutators = (Map<String, MethodNode>) node.getNodeMetaData(PRIVATE_FIELDS_MUTATORS);
+        if (privateFieldAccessors != null || privateFieldMutators != null) {
             // already added
             return;
         }
         int acc = -1;
-        privateConstantAccessors = new HashMap<String, MethodNode>();
+        privateFieldAccessors = accessedFields != null ? new HashMap<String, MethodNode>() : null;
+        privateFieldMutators = mutatedFields != null ? new HashMap<String, MethodNode>() : null;
         final int access = Opcodes.ACC_STATIC | Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
         for (FieldNode fieldNode : node.getFields()) {
-            if (accessedFields.contains(fieldNode)) {
-
+            boolean generateAccessor = accessedFields != null && accessedFields.contains(fieldNode);
+            boolean generateMutator = mutatedFields != null && mutatedFields.contains(fieldNode);
+            if (generateAccessor) {
                 acc++;
                 Parameter param = new Parameter(node.getPlainNodeReference(), "$that");
-                Expression receiver = fieldNode.isStatic()?new ClassExpression(node):new VariableExpression(param);
+                Expression receiver = fieldNode.isStatic() ? new ClassExpression(node) : new VariableExpression(param);
                 Statement stmt = new ExpressionStatement(new PropertyExpression(
                         receiver,
                         fieldNode.getName()
                 ));
-                MethodNode accessor = node.addMethod("pfaccess$"+acc, access, fieldNode.getOriginType(), new Parameter[]{param}, ClassNode.EMPTY_ARRAY, stmt);
-                privateConstantAccessors.put(fieldNode.getName(), accessor);
+                MethodNode accessor = node.addMethod("pfaccess$" + acc, access, fieldNode.getOriginType(), new Parameter[]{param}, ClassNode.EMPTY_ARRAY, stmt);
+                privateFieldAccessors.put(fieldNode.getName(), accessor);
+            }
+
+            if (generateMutator) {
+                //increment acc if it hasn't been incremented in the current iteration
+                if (!generateAccessor) acc++;
+                Parameter param = new Parameter(node.getPlainNodeReference(), "$that");
+                Expression receiver = fieldNode.isStatic() ? new ClassExpression(node) : new VariableExpression(param);
+                Parameter value = new Parameter(fieldNode.getOriginType(), "$value");
+                Statement stmt = GeneralUtils.assignS(
+                        new PropertyExpression(receiver, fieldNode.getName()),
+                        new VariableExpression(value)
+                );
+                MethodNode mutator = node.addMethod("pfaccess$0" + acc, access, fieldNode.getOriginType(), new Parameter[]{param, value}, ClassNode.EMPTY_ARRAY, stmt);
+                privateFieldMutators.put(fieldNode.getName(), mutator);
             }
         }
-        node.setNodeMetaData(PRIVATE_FIELDS_ACCESSORS, privateConstantAccessors);
+        if (privateFieldAccessors != null) node.setNodeMetaData(PRIVATE_FIELDS_ACCESSORS, privateFieldAccessors);
+        if (privateFieldMutators != null) node.setNodeMetaData(PRIVATE_FIELDS_MUTATORS, privateFieldMutators);
     }
 
     /**
@@ -204,7 +244,7 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
      * @param node an inner/outer class node for which to generate bridge methods
      */
     @SuppressWarnings("unchecked")
-    private void addPrivateBridgeMethods(final ClassNode node) {
+    private static void addPrivateBridgeMethods(final ClassNode node) {
         Set<ASTNode> accessedMethods = (Set<ASTNode>) node.getNodeMetaData(StaticTypesMarker.PV_METHODS_ACCESS);
         if (accessedMethods==null) return;
         List<MethodNode> methods = new ArrayList<MethodNode>(node.getAllDeclaredMethods());
@@ -279,7 +319,7 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
         return genericTypeTokens;
     }
 
-    private void memorizeInitialExpressions(final MethodNode node) {
+    private static void memorizeInitialExpressions(final MethodNode node) {
         // add node metadata for default parameters because they are erased by the Verifier
         if (node.getParameters()!=null) {
             for (Parameter parameter : node.getParameters()) {

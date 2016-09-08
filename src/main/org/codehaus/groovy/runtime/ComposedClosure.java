@@ -28,7 +28,7 @@ import java.util.List;
  * <code>leftShift()</code> methods on <code>Closure</code>.
  * <p>
  * Typical usages:
- * <pre>
+ * <pre class="groovyTestCase">
  * def twice = { a -> a * 2 }
  * def inc = { b -> b + 1 }
  * def f = { x -> twice(inc(x)) } // longhand
@@ -59,8 +59,8 @@ import java.util.List;
  */
 public final class ComposedClosure<V> extends Closure<V> {
 
-    private Closure first;
-    private Closure<V> second;
+    private final Closure first;
+    private final Closure<V> second;
 
     public ComposedClosure(Closure first, Closure<V> second) {
         super(first.clone());

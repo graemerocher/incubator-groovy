@@ -98,17 +98,17 @@ public class VariableScope  {
     public VariableScope copy() {
         VariableScope copy = new VariableScope();
         copy.clazzScope = clazzScope;
-        if (declaredVariables.size() > 0) {
+        if (!declaredVariables.isEmpty()) {
           copy.declaredVariables = new HashMap<String, Variable>();
           copy.declaredVariables.putAll(declaredVariables);
         }
         copy.inStaticContext = inStaticContext;
         copy.parent = parent;
-        if (referencedClassVariables.size() > 0) {
+        if (!referencedClassVariables.isEmpty()) {
             copy.referencedClassVariables = new HashMap<String, Variable>();
             copy.referencedClassVariables.putAll(referencedClassVariables);
         }
-        if (referencedLocalVariables.size() > 0) {
+        if (!referencedLocalVariables.isEmpty()) {
             copy.referencedLocalVariables = new HashMap<String, Variable>();
             copy.referencedLocalVariables.putAll(referencedLocalVariables);
         }
@@ -177,5 +177,27 @@ public class VariableScope  {
      */
     public Iterator<Variable> getReferencedClassVariablesIterator() {
         return getReferencedClassVariables().values().iterator();
+    }
+
+    /**
+     * Gets a map containing the variables declared in this scope.
+     * This map cannot be modified.
+     * @return a map containing the declared variable references
+     */
+    public Map<String, Variable> getDeclaredVariables() {
+        if (declaredVariables == Collections.EMPTY_MAP) {
+            return declaredVariables;
+        } else {
+            return Collections.unmodifiableMap(declaredVariables);
+        }
+    }
+
+    /**
+     * Gets an iterator for the declared class variables. The remove
+     * operation is not supported.
+     * @return an iterator for the declared variables
+     */
+    public Iterator<Variable> getDeclaredVariablesIterator() {
+        return getDeclaredVariables().values().iterator();
     }
 }

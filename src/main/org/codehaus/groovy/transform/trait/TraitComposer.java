@@ -62,6 +62,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -70,6 +71,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.codehaus.groovy.ast.tools.GenericsUtils.correctToGenericsSpecRecurse;
+import static org.codehaus.groovy.ast.tools.GenericsUtils.newClass;
 
 /**
  * This class contains a static utility method {@link #doExtendTraits(org.codehaus.groovy.ast.ClassNode, org.codehaus.groovy.control.SourceUnit, org.codehaus.groovy.control.CompilationUnit)}
@@ -149,7 +151,7 @@ public abstract class TraitComposer {
                 System.arraycopy(methodNode.getParameters(), 1, params, 0, params.length);
                 Map<String,ClassNode> methodGenericsSpec = new LinkedHashMap<String, ClassNode>(genericsSpec);
                 MethodNode originalMethod = trait.getMethod(name, params);
-                // Original method may be null in case of a private method
+                // Original method may be null for the case of private or static methods
                 if (originalMethod!=null) {
                     methodGenericsSpec = GenericsUtils.addMethodGenerics(originalMethod, methodGenericsSpec);
                 }
@@ -319,10 +321,19 @@ public abstract class TraitComposer {
         if (!copied.isEmpty()) {
             forwarder.addAnnotations(copied);
         }
-        if (originalMethod!=null) {
+        if (originalMethod != null) {
             GenericsType[] newGt = GenericsUtils.applyGenericsContextToPlaceHolders(genericsSpec, originalMethod.getGenericsTypes());
             newGt = removeNonPlaceHolders(newGt);
             forwarder.setGenericsTypes(newGt);
+        } else {
+            // null indicates a static method which may still need generics correction
+            GenericsType[] genericsTypes = helperMethod.getGenericsTypes();
+            if (genericsTypes != null) {
+                Map<String, ClassNode> methodSpec = new HashMap<String, ClassNode>();
+                methodSpec = GenericsUtils.addMethodGenerics(helperMethod, methodSpec);
+                GenericsType[] newGt = GenericsUtils.applyGenericsContextToPlaceHolders(methodSpec, helperMethod.getGenericsTypes());
+                forwarder.setGenericsTypes(newGt);
+            }
         }
         // add a helper annotation indicating that it is a bridge method
         AnnotationNode bridgeAnnotation = new AnnotationNode(Traits.TRAITBRIDGE_CLASSNODE);
@@ -352,7 +363,7 @@ public abstract class TraitComposer {
             }
         }
         if (!modified) return oldTypes;
-        if (l.size()==0) return null;
+        if (l.isEmpty()) return null;
         return l.toArray(new GenericsType[l.size()]);
     }
 
@@ -484,34 +495,6 @@ public abstract class TraitComposer {
             return true;
         }
         return false;
-    }
-
-    /**
-     * An utility method which tries to find a method with default implementation (in the Java 8 semantics).
-     * @param cNode a class node
-     * @param name the name of the method
-     * @param params the parameters of the method
-     * @return a method node corresponding to a default method if it exists
-     */
-    private static MethodNode findDefaultMethodFromInterface(final ClassNode cNode, final String name, final Parameter[] params) {
-        if (cNode == null) {
-            return null;
-        }
-        if (cNode.isInterface()) {
-            MethodNode method = cNode.getMethod(name, params);
-            if (method!=null && !method.isAbstract()) {
-                // this is a Java 8 only behavior!
-                return method;
-            }
-        }
-        ClassNode[] interfaces = cNode.getInterfaces();
-        for (ClassNode anInterface : interfaces) {
-            MethodNode res = findDefaultMethodFromInterface(anInterface, name, params);
-            if (res!=null) {
-                return res;
-            }
-        }
-        return findDefaultMethodFromInterface(cNode.getSuperClass(), name, params);
     }
 
     private static boolean isExistingProperty(final String methodName, final ClassNode cNode, final Parameter[] params) {

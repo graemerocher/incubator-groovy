@@ -37,15 +37,16 @@ public class ExtensionModuleHelperForTests {
     }
     org.junit.runner.JUnitCore.main('TempTest')
 """
-        def cl = ExtensionModuleHelperForTests.classLoader
-        while (!(cl instanceof URLClassLoader)) {
-            cl = cl.parent
-            if (cl ==null) {
-                throw new RuntimeException("Unable to find class loader")
-            }
-        }
-        Set<String> cp = ((URLClassLoader)cl).URLs.collect{ new File(it.toURI()).absolutePath}
+
+        Set<String> cp = System.getProperty("java.class.path").split(File.pathSeparator) as Set
         cp << baseDir.absolutePath
+
+        boolean jdk9 = false;
+        try {
+            jdk9 = this.classLoader.loadClass("java.lang.reflect.Module") != null
+        } catch (e) {
+            // ignore
+        }
 
         def ant = new AntBuilder()
         try {
@@ -61,6 +62,10 @@ public class ExtensionModuleHelperForTests {
                                 cp.each {
                                     pathelement location: it
                                 }
+                            }
+                            if (jdk9) {
+                                jvmarg(value: '-addmods')
+                                jvmarg(value: 'java.xml.bind')
                             }
                         }
                 )

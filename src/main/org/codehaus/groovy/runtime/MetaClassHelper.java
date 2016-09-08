@@ -429,14 +429,14 @@ public class MetaClassHelper {
             CachedClass baseType = parameters[noVargsLength]; // case C
             if (!parameters[noVargsLength].isAssignableFrom(arguments[noVargsLength])) {
                 baseType = ReflectionCache.getCachedClass(baseType.getTheClass().getComponentType()); // case D
-                ret += 2l << VARGS_SHIFT; // penalty for vargs
+                ret += 2L << VARGS_SHIFT; // penalty for vargs
             }
             ret += calculateParameterDistance(arguments[noVargsLength], baseType);
         } else if (arguments.length > parameters.length) {
             // case B
             // we give our a vargs penalty for each exceeding argument and iterate
             // by using parameters[noVargsLength].getComponentType()
-            ret += (2l + arguments.length - parameters.length) << VARGS_SHIFT; // penalty for vargs
+            ret += (2L + arguments.length - parameters.length) << VARGS_SHIFT; // penalty for vargs
             CachedClass vargsType = ReflectionCache.getCachedClass(parameters[noVargsLength].getTheClass().getComponentType());
             for (int i = noVargsLength; i < arguments.length; i++) {
                 ret += calculateParameterDistance(arguments[i], vargsType);
@@ -445,7 +445,7 @@ public class MetaClassHelper {
             // case A
             // we give a penalty for vargs, since we have no direct
             // match for the last argument
-            ret += 1l << VARGS_SHIFT;
+            ret += 1L << VARGS_SHIFT;
         }
 
         return ret;
@@ -502,6 +502,7 @@ public class MetaClassHelper {
      *         object (e.g. Object) ignoring primitive types
      * @deprecated
      */
+    @Deprecated
     public static Object chooseMostGeneralMethodWith1NullParam(FastArray methods) {
         // let's look for methods with 1 argument which matches the type of the
         // arguments
@@ -563,16 +564,6 @@ public class MetaClassHelper {
     }
 
     // 
-
-    private static int calculateSimplifiedClassDistanceToObject(Class clazz) {
-        int objectDistance = 0;
-        while (clazz != null) {
-            clazz = clazz.getSuperclass();
-            objectDistance++;
-        }
-        return objectDistance;
-    }
-
 
     /**
      * @param list   a list of MetaMethods
@@ -645,9 +636,9 @@ public class MetaClassHelper {
             int tmpCount = 0;
             for (int i = offset; i < arguments.length; i++) {
                 if (arguments[i] != null) {
-                    Class argClass, tmpClass;
+                    Class tmpClass;
                     Set<Class> intfs = new HashSet<Class>();
-                    tmpClass = argClass = arguments[i].getClass();
+                    tmpClass = arguments[i].getClass();
                     for (; tmpClass != Object.class; tmpClass = tmpClass.getSuperclass()) {
                         intfs.addAll(Arrays.asList(tmpClass.getInterfaces()));
                     }

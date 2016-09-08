@@ -29,11 +29,11 @@ import groovy.transform.stc.FromString;
 import groovy.transform.stc.PickFirstResolver;
 import groovy.transform.stc.SimpleType;
 import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
+import org.codehaus.groovy.util.CharSequenceReader;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.StringReader;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -58,9 +58,8 @@ import static org.codehaus.groovy.runtime.DefaultGroovyMethods.join;
 /**
  * This class defines new groovy methods which appear on String-related JDK
  * classes (String, CharSequence, Matcher) inside the Groovy environment.
- * Static methods are used with the
- * first parameter being the destination class,
- * e.g.. <code>public static String reverse(String self)</code>
+ * Static methods are used with the first parameter being the destination class,
+ * e.g. <code>public static String reverse(String self)</code>
  * provides a <code>reverse()</code> method for <code>String</code>.
  * <p>
  * NOTE: While this class contains many 'public' static methods, it is
@@ -70,36 +69,6 @@ import static org.codehaus.groovy.runtime.DefaultGroovyMethods.join;
  * at the Java method call level. I.e. future versions of Groovy may
  * remove or move a method call in this file but would normally
  * aim to keep the method available from within Groovy.
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Jeremy Rayner
- * @author Sam Pullara
- * @author Rod Cope
- * @author Guillaume Laforge
- * @author John Wilson
- * @author Hein Meling
- * @author Dierk Koenig
- * @author Pilho Kim
- * @author Marc Guillemot
- * @author Russel Winder
- * @author bing ran
- * @author Jochen Theodorou
- * @author Paul King
- * @author Michael Baehr
- * @author Joachim Baumann
- * @author Alex Tkachman
- * @author Ted Naleid
- * @author Brad Long
- * @author Jim Jagielski
- * @author Rodolfo Velasco
- * @author jeremi Joslin
- * @author Hamlet D'Arcy
- * @author Cedric Champeau
- * @author Tim Yates
- * @author Dinko Srkoc
- * @author Pascal Lombard
- * @author Christophe Charles
- * @author Andres Almiray
  */
 public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
 
@@ -194,25 +163,25 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
     @SuppressWarnings("unchecked")
     public static <T> T asType(String self, Class<T> c) {
         if (c == List.class) {
-            return (T) toList(self);
+            return (T) toList((CharSequence)self);
         } else if (c == BigDecimal.class) {
-            return (T) toBigDecimal(self);
+            return (T) toBigDecimal((CharSequence)self);
         } else if (c == BigInteger.class) {
-            return (T) toBigInteger(self);
+            return (T) toBigInteger((CharSequence)self);
         } else if (c == Long.class || c == Long.TYPE) {
-            return (T) toLong(self);
+            return (T) toLong((CharSequence)self);
         } else if (c == Integer.class || c == Integer.TYPE) {
-            return (T) toInteger(self);
+            return (T) toInteger((CharSequence)self);
         } else if (c == Short.class || c == Short.TYPE) {
-            return (T) toShort(self);
+            return (T) toShort((CharSequence)self);
         } else if (c == Byte.class || c == Byte.TYPE) {
             return (T) Byte.valueOf(self.trim());
         } else if (c == Character.class || c == Character.TYPE) {
             return (T) toCharacter(self);
         } else if (c == Double.class || c == Double.TYPE) {
-            return (T) toDouble(self);
+            return (T) toDouble((CharSequence)self);
         } else if (c == Float.class || c == Float.TYPE) {
-            return (T) toFloat(self);
+            return (T) toFloat((CharSequence)self);
         } else if (c == File.class) {
             return (T) new File(self);
         } else if (c.isEnum()) {
@@ -258,9 +227,8 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 2.5.0
      */
     public static String uncapitalize(CharSequence self) {
-        String s = self.toString();
-        if (s == null || s.length() == 0) return s;
-        return Character.toLowerCase(s.charAt(0)) + s.substring(1);
+        if (self.length() == 0) return "";
+        return "" + Character.toLowerCase(self.charAt(0)) + self.subSequence(1, self.length());
     }
 
     /**
@@ -280,9 +248,8 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String capitalize(CharSequence self) {
-        String s = self.toString();
-        if (s == null || s.length() == 0) return s;
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        if (self.length() == 0) return "";
+        return "" + Character.toUpperCase(self.charAt(0)) + self.subSequence(1, self.length());
     }
 
     /**
@@ -342,20 +309,18 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String center(CharSequence self, Number numberOfChars, CharSequence padding) {
-        String s = self.toString();
-        String padding1 = padding.toString();
         int numChars = numberOfChars.intValue();
-        if (numChars <= s.length()) {
-            return s;
+        if (numChars <= self.length()) {
+            return self.toString();
         } else {
-            int charsToAdd = numChars - s.length();
+            int charsToAdd = numChars - self.length();
             String semiPad = charsToAdd % 2 == 1 ?
-                    getPadding(padding1, charsToAdd / 2 + 1) :
-                    getPadding(padding1, charsToAdd / 2);
+                    getPadding(padding, charsToAdd / 2 + 1) :
+                    getPadding(padding, charsToAdd / 2);
             if (charsToAdd % 2 == 0)
-                return semiPad + s + semiPad;
+                return semiPad + self + semiPad;
             else
-                return semiPad.substring(0, charsToAdd / 2) + s + semiPad;
+                return semiPad.substring(0, charsToAdd / 2) + self + semiPad;
         }
     }
 
@@ -431,16 +396,6 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
         return count((CharSequence) self, (CharSequence) text);
     }
 
-    private static StringBufferWriter createStringBufferWriter(StringBuffer self) {
-        return new StringBufferWriter(self);
-    }
-
-    private static StringWriter createStringWriter(String self) {
-        StringWriter answer = new StringWriter();
-        answer.write(self);
-        return answer;
-    }
-
     /**
      * Return a CharSequence with lines (separated by LF, CR/LF, or CR)
      * terminated by the platform specific line separator.
@@ -451,7 +406,6 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String denormalize(final CharSequence self) {
-        final String s = self.toString();
         // Don't do this in static initializer because we may never be needed.
         // TODO: Put this lineSeparator property somewhere everyone can use it.
         if (lineSeparator == null) {
@@ -470,25 +424,28 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
             }
         }
 
-        final int len = s.length();
+        final int len = self.length();
 
         if (len < 1) {
-            return s;
+            return self.toString();
         }
 
         final StringBuilder sb = new StringBuilder((110 * len) / 100);
 
         int i = 0;
 
+        // GROOVY-7873: GString calls toString() on each invocation of CharSequence methods such
+        // as charAt which is very expensive for large GStrings.
+        CharSequence cs = (self instanceof GString) ? self.toString() : self;
         while (i < len) {
-            final char ch = s.charAt(i++);
+            final char ch = cs.charAt(i++);
 
             switch (ch) {
                 case '\r':
                     sb.append(lineSeparator);
 
                     // Eat the following LF if any.
-                    if ((i < len) && (s.charAt(i) == '\n')) {
+                    if ((i < len) && (cs.charAt(i) == '\n')) {
                         ++i;
                     }
 
@@ -597,22 +554,9 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
         return dropWhile(self.toString(), condition);
     }
 
-    private static final class CharacterIterable implements Iterable<Character> {
-        private final CharSequence delegate;
-
-        public CharacterIterable(CharSequence delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public Iterator<Character> iterator() {
-            return new CharacterIterator(delegate);
-        }
-    }
-
     private static final class CharacterIterator implements Iterator<Character> {
         private final CharSequence delegate;
-        private int length;
+        private final int length;
         private int index;
 
         public CharacterIterator(CharSequence delegate) {
@@ -633,22 +577,9 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
         }
     }
 
-    private static final class StringIterable implements Iterable<String> {
-        private final CharSequence delegate;
-
-        public StringIterable(CharSequence delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public Iterator<String> iterator() {
-            return new StringIterator(delegate);
-        }
-    }
-
     private static final class StringIterator implements Iterator<String> {
         private final CharSequence delegate;
-        private int length;
+        private final int length;
         private int index;
 
         public StringIterator(CharSequence delegate) {
@@ -666,6 +597,21 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
 
         public void remove() {
             throw new UnsupportedOperationException("Remove not supported for CharSequence iterators");
+        }
+    }
+
+    private static final class LineIterable implements Iterable<String> {
+        private final CharSequence delegate;
+
+        public LineIterable(CharSequence cs) {
+            // GROOVY-7873: GString calls toString() on each invocation of CharSequence methods such
+            // as charAt which is very expensive for large GStrings.
+            this.delegate = (cs instanceof GString) ? cs.toString() : cs;
+        }
+
+        @Override
+        public Iterator<String> iterator() {
+            return IOGroovyMethods.iterator(new CharSequenceReader(delegate));
         }
     }
 
@@ -701,7 +647,7 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
     public static <T> T eachLine(CharSequence self, int firstLine, @ClosureParams(value=FromString.class, options={"String","String,Integer"}) Closure<T> closure) throws IOException {
         int count = firstLine;
         T result = null;
-        for (String line : readLines((CharSequence)self.toString())) {
+        for (String line : new LineIterable(self)) {
             result = callClosureForLine(closure, line, count);
             count++;
         }
@@ -863,23 +809,17 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String expand(CharSequence self, int tabStop) {
-        String s = self.toString();
-        if (s.length() == 0) return s;
-        try {
-            StringBuilder builder = new StringBuilder();
-            for (String line : readLines(s)) {
-                builder.append(expandLine(line, tabStop));
-                builder.append("\n");
-            }
-            // remove the normalized ending line ending if it was not present
-            if (!s.endsWith("\n")) {
-                builder.deleteCharAt(builder.length() - 1);
-            }
-            return builder.toString();
-        } catch (IOException e) {
-            /* ignore */
+        if (self.length() == 0) return "";
+        StringBuilder builder = new StringBuilder();
+        for (String line : new LineIterable(self)) {
+            builder.append(expandLine((CharSequence)line, tabStop));
+            builder.append("\n");
         }
-        return s;
+        // remove the normalized ending line ending if it was not present
+        if (self.charAt(self.length() - 1) != '\n') {
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        return builder.toString();
     }
 
     /**
@@ -936,18 +876,18 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * If the regex doesn't match, null will be returned.
      * <p>
      * For example, if the regex doesn't match the result is null:
-     * <pre>
-     *     assert null == "New York, NY".find(/\d{5}/)
+     * <pre class="groovyTestCase">
+     *     assert "New York, NY".find(/\d{5}/) == null
      * </pre>
      *
      * If it does match, we get the matching string back:
-     * <pre>
-     *      assert "10292" == "New York, NY 10292-0098".find(/\d{5}/)
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(/\d{5}/) == "10292"
      * </pre>
      *
      * If we have capture groups in our expression, we still get back the full match
-     * <pre>
-     *      assert "10292-0098" == "New York, NY 10292-0098".find(/(\d{5})-?(\d{4})/)
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(/(\d{5})-?(\d{4})/) == "10292-0098"
      * </pre>
      *
      * @param self  a CharSequence
@@ -972,7 +912,7 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String find(CharSequence self, CharSequence regex, @ClosureParams(value=SimpleType.class, options="java.lang.String[]") Closure closure) {
-        return find(self.toString(), Pattern.compile(regex.toString()), closure);
+        return find(self, Pattern.compile(regex.toString()), closure);
     }
 
     /**
@@ -980,19 +920,19 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * If the pattern doesn't match, null will be returned.
      * <p>
      * For example, if the pattern doesn't match the result is null:
-     * <pre>
-     *     assert null == "New York, NY".find(~/\d{5}/)
+     * <pre class="groovyTestCase">
+     *     assert "New York, NY".find(~/\d{5}/) == null
      * </pre>
      *
      * If it does match, we get the matching string back:
-     * <pre>
-     *      assert "10292" == "New York, NY 10292-0098".find(~/\d{5}/)
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(~/\d{5}/) == "10292"
      * </pre>
      *
      * If we have capture groups in our expression, the groups are ignored and
      * we get back the full match:
-     * <pre>
-     *      assert "10292-0098" == "New York, NY 10292-0098".find(~/(\d{5})-?(\d{4})/)
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(~/(\d{5})-?(\d{4})/) == "10292-0098"
      * </pre>
      * If you need to work with capture groups, then use the closure version
      * of this method or use Groovy's matcher operators or use <tt>eachMatch</tt>.
@@ -1016,47 +956,47 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * If the regex doesn't match, the closure will not be called and find will return null.
      * <p>
      * For example, if the pattern doesn't match, the result is null:
-     * <pre>
-     *     assert null == "New York, NY".find(~/\d{5}/) { match -> return "-$match-"}
+     * <pre class="groovyTestCase">
+     *     assert "New York, NY".find(~/\d{5}/) { match -> return "-$match-"} == null
      * </pre>
      *
      * If it does match and we don't have any capture groups in our regex, there is a single parameter
      * on the closure that the match gets passed to:
-     * <pre>
-     *      assert "-10292-" == "New York, NY 10292-0098".find(~/\d{5}/) { match -> return "-$match-"}
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(~/\d{5}/) { match -> return "-$match-"} == "-10292-"
      * </pre>
      *
      * If we have capture groups in our expression, our closure has one parameter for the match, followed by
      * one for each of the capture groups:
-     * <pre>
-     *      assert "10292" == "New York, NY 10292-0098".find(~/(\d{5})-?(\d{4})/) { match, zip, plusFour ->
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(~/(\d{5})-?(\d{4})/) { match, zip, plusFour ->
      *          assert match == "10292-0098"
      *          assert zip == "10292"
      *          assert plusFour == "0098"
      *          return zip
-     *      }
+     *      } == "10292"
      * </pre>
      * If we have capture groups in our expression, and our closure has one parameter,
      * the closure will be passed an array with the first element corresponding to the whole match,
      * followed by an element for each of the capture groups:
-     * <pre>
-     *      assert "10292" == "New York, NY 10292-0098".find(~/(\d{5})-?(\d{4})/) { match, zip, plusFour ->
+     * <pre class="groovyTestCase">
+     *      assert "New York, NY 10292-0098".find(~/(\d{5})-?(\d{4})/) { array ->
      *          assert array[0] == "10292-0098"
      *          assert array[1] == "10292"
      *          assert array[2] == "0098"
      *          return array[1]
-     *      }
+     *      } == "10292"
      * </pre>
      * If a capture group is optional, and doesn't match, then the corresponding value
      * for that capture group passed to the closure will be null as illustrated here:
-     * <pre>
-     *      assert "2339999" == "adsf 233-9999 adsf".find(~/(\d{3})?-?(\d{3})-(\d{4})/) { match, areaCode, exchange, stationNumber ->
+     * <pre class="groovyTestCase">
+     *      assert "adsf 233-9999 adsf".find(~/(\d{3})?-?(\d{3})-(\d{4})/) { match, areaCode, exchange, stationNumber ->
      *          assert "233-9999" == match
      *          assert null == areaCode
      *          assert "233" == exchange
      *          assert "9999" == stationNumber
      *          return "$exchange$stationNumber"
-     *      }
+     *      } == "2339999"
      * </pre>
      *
      * @param self    a CharSequence
@@ -1123,13 +1063,13 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * Returns a (possibly empty) list of all occurrences of a regular expression (provided as a CharSequence) found within a CharSequence.
      * <p>
      * For example, if the regex doesn't match, it returns an empty list:
-     * <pre>
-     * assert [] == "foo".findAll(/(\w*) Fish/)
+     * <pre class="groovyTestCase">
+     * assert "foo".findAll(/(\w*) Fish/) == []
      * </pre>
      * Any regular expression matches are returned in a list, and all regex capture groupings are ignored, only the full match is returned:
-     * <pre>
+     * <pre class="groovyTestCase">
      * def expected = ["One Fish", "Two Fish", "Red Fish", "Blue Fish"]
-     * assert expected == "One Fish, Two Fish, Red Fish, Blue Fish".findAll(/(\w*) Fish/)
+     * assert "One Fish, Two Fish, Red Fish, Blue Fish".findAll(/(\w*) Fish/) == expected
      * </pre>
      * If you need to work with capture groups, then use the closure version
      * of this method or use Groovy's matcher operators or use <tt>eachMatch</tt>.
@@ -1151,17 +1091,17 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * If there are no matches, the closure will not be called, and an empty List will be returned.
      * <p>
      * For example, if the regex doesn't match, it returns an empty list:
-     * <pre>
-     * assert [] == "foo".findAll(/(\w*) Fish/) { match, firstWord -> return firstWord }
+     * <pre class="groovyTestCase">
+     * assert "foo".findAll(/(\w*) Fish/) { match, firstWord -> return firstWord } == []
      * </pre>
      * Any regular expression matches are passed to the closure, if there are no capture groups, there will be one parameter for the match:
-     * <pre>
-     * assert ["couldn't", "wouldn't"] == "I could not, would not, with a fox.".findAll(/.ould/) { match -> "${match}n't"}
+     * <pre class="groovyTestCase">
+     * assert "I could not, would not, with a fox.".findAll(/.ould/) { match -> "${match}n't"} == ["couldn't", "wouldn't"]
      * </pre>
      * If there are capture groups, the first parameter will be the match followed by one parameter for each capture group:
-     * <pre>
+     * <pre class="groovyTestCase">
      * def orig = "There's a Wocket in my Pocket"
-     * assert ["W > Wocket", "P > Pocket"] == orig.findAll(/(.)ocket/) { match, firstLetter -> "$firstLetter > $match" }
+     * assert orig.findAll(/(.)ocket/) { match, firstLetter -> "$firstLetter > $match" } == ["W > Wocket", "P > Pocket"]
      * </pre>
      *
      * @param self    a CharSequence
@@ -1179,13 +1119,13 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * Returns a (possibly empty) list of all occurrences of a regular expression (in Pattern format) found within a CharSequence.
      * <p>
      * For example, if the pattern doesn't match, it returns an empty list:
-     * <pre>
-     * assert [] == "foo".findAll(~/(\w*) Fish/)
+     * <pre class="groovyTestCase">
+     * assert "foo".findAll(~/(\w*) Fish/) == []
      * </pre>
      * Any regular expression matches are returned in a list, and all regex capture groupings are ignored, only the full match is returned:
-     * <pre>
+     * <pre class="groovyTestCase">
      * def expected = ["One Fish", "Two Fish", "Red Fish", "Blue Fish"]
-     * assert expected == "One Fish, Two Fish, Red Fish, Blue Fish".findAll(~/(\w*) Fish/)
+     * assert "One Fish, Two Fish, Red Fish, Blue Fish".findAll(~/(\w*) Fish/) == expected
      * </pre>
      *
      * @param self    a CharSequence
@@ -1216,18 +1156,18 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * If there are no matches, the closure will not be called, and an empty List will be returned.
      * <p>
      * For example, if the pattern doesn't match, it returns an empty list:
-     * <pre>
-     * assert [] == "foo".findAll(~/(\w*) Fish/) { match, firstWord -> return firstWord }
+     * <pre class="groovyTestCase">
+     * assert "foo".findAll(~/(\w*) Fish/) { match, firstWord -> return firstWord } == []
      * </pre>
      * Any regular expression matches are passed to the closure, if there are no capture groups, there will be one
      * parameter for the match:
-     * <pre>
-     * assert ["couldn't", "wouldn't"] == "I could not, would not, with a fox.".findAll(~/.ould/) { match -> "${match}n't"}
+     * <pre class="groovyTestCase">
+     * assert "I could not, would not, with a fox.".findAll(~/.ould/) { match -> "${match}n't"} == ["couldn't", "wouldn't"]
      * </pre>
      * If there are capture groups, the first parameter will be the match followed by one parameter for each capture group:
-     * <pre>
+     * <pre class="groovyTestCase">
      * def orig = "There's a Wocket in my Pocket"
-     * assert ["W > Wocket", "P > Pocket"] == orig.findAll(~/(.)ocket/) { match, firstLetter -> "$firstLetter > $match" }
+     * assert orig.findAll(~/(.)ocket/) { match, firstLetter -> "$firstLetter > $match" } == ["W > Wocket", "P > Pocket"]
      * </pre>
      *
      * @param self    a CharSequence
@@ -1420,10 +1360,10 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
     }
 
     /**
-     * Support the subscript operator, e.g.&#160;matcher[index], for a regex Matcher.
+     * Support the subscript operator, e.g. matcher[index], for a regex Matcher.
      * <p>
      * For an example using no group match,
-     * <pre>
+     * <pre class="groovyTestCase">
      *    def p = /ab[d|f]/
      *    def m = "abcabdabeabf" =~ p
      *    assert 2 == m.count
@@ -1432,12 +1372,12 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      *    assert 0 == m.groupCount()
      *    def matches = ["abd", "abf"]
      *    for (i in 0..&lt;m.count) {
-     *    &#160;&#160;assert m[i] == matches[i]
+     *      assert m[i] == matches[i]
      *    }
      * </pre>
      * <p>
      * For an example using group matches,
-     * <pre>
+     * <pre class="groovyTestCase">
      *    def p = /(?:ab([c|d|e|f]))/
      *    def m = "abcabdabeabf" =~ p
      *    assert 4 == m.count
@@ -1445,19 +1385,19 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      *    assert 1 == m.groupCount()
      *    def matches = [["abc", "c"], ["abd", "d"], ["abe", "e"], ["abf", "f"]]
      *    for (i in 0..&lt;m.count) {
-     *    &#160;&#160;assert m[i] == matches[i]
+     *      assert m[i] == matches[i]
      *    }
      * </pre>
      * <p>
      * For another example using group matches,
-     * <pre>
+     * <pre class="groovyTestCase">
      *    def m = "abcabdabeabfabxyzabx" =~ /(?:ab([d|x-z]+))/
      *    assert 3 == m.count
      *    assert m.hasGroup()
      *    assert 1 == m.groupCount()
      *    def matches = [["abd", "d"], ["abxyz", "xyz"], ["abx", "x"]]
      *    for (i in 0..&lt;m.count) {
-     *    &#160;&#160;assert m[i] == matches[i]
+     *      assert m[i] == matches[i]
      *    }
      * </pre>
      *
@@ -1568,7 +1508,7 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
         RangeInfo info = subListBorders(text.length(), range);
         String answer = text.substring(info.from, info.to);
         if (info.reverse) {
-            answer = reverse(answer);
+            answer = reverse((CharSequence)answer);
         }
         return answer;
     }
@@ -1610,11 +1550,11 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
         return counter;
     }
 
-    private static String getPadding(String padding, int length) {
+    private static String getPadding(CharSequence padding, int length) {
         if (padding.length() < length) {
             return multiply(padding, length / padding.length() + 1).substring(0, length);
         } else {
-            return padding.substring(0, length);
+            return "" + padding.subSequence(0, length);
         }
     }
 
@@ -1669,9 +1609,8 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static boolean isAllWhitespace(CharSequence self) {
-        String s = self.toString();
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isWhitespace(s.charAt(i)))
+        for (int i = 0; i < self.length(); i++) {
+            if (!Character.isWhitespace(self.charAt(i)))
                 return false;
         }
         return true;
@@ -1757,11 +1696,10 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static boolean isCase(CharSequence caseValue, Object switchValue) {
-        String s = caseValue.toString();
         if (switchValue == null) {
-            return s == null;
+            return caseValue == null;
         }
-        return s.equals(switchValue.toString());
+        return caseValue.toString().equals(switchValue.toString());
     }
 
     /**
@@ -2133,16 +2071,15 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String multiply(CharSequence self, Number factor) {
-        String s = self.toString();
         int size = factor.intValue();
         if (size == 0)
             return "";
         else if (size < 0) {
             throw new IllegalArgumentException("multiply() should be called with a number of 0 or greater not: " + size);
         }
-        StringBuilder answer = new StringBuilder(s);
+        StringBuilder answer = new StringBuilder(self);
         for (int i = 1; i < size; i++) {
-            answer.append(s);
+            answer.append(self);
         }
         return answer.toString();
     }
@@ -2302,12 +2239,11 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String padLeft(CharSequence self, Number numberOfChars, CharSequence padding) {
-        String s = self.toString();
         int numChars = numberOfChars.intValue();
-        if (numChars <= s.length()) {
-            return s;
+        if (numChars <= self.length()) {
+            return self.toString();
         } else {
-            return getPadding(padding.toString(), numChars - s.length()) + s;
+            return getPadding(padding.toString(), numChars - self.length()) + self;
         }
     }
 
@@ -2380,12 +2316,11 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String padRight(CharSequence self, Number numberOfChars, CharSequence padding) {
-        String s = self.toString();
         int numChars = numberOfChars.intValue();
-        if (numChars <= s.length()) {
-            return s;
+        if (numChars <= self.length()) {
+            return self.toString();
         } else {
-            return s + getPadding(padding.toString(), numChars - s.length());
+            return self + getPadding(padding.toString(), numChars - self.length());
         }
     }
 
@@ -2530,11 +2465,10 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      *
      * @param self a CharSequence object
      * @return a list of lines
-     * @throws java.io.IOException if an error occurs
      * @since 1.8.2
      */
-    public static List<String> readLines(CharSequence self) throws IOException {
-        return IOGroovyMethods.readLines(new StringReader(self.toString()));
+    public static List<String> readLines(CharSequence self) {
+        return DefaultGroovyMethods.toList(new LineIterable(self));
     }
 
     /**
@@ -2542,7 +2476,7 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @see #readLines(CharSequence)
      */
     @Deprecated
-    public static List<String> readLines(String self) throws IOException {
+    public static List<String> readLines(String self) {
         return readLines((CharSequence) self);
     }
 
@@ -2563,25 +2497,25 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
     }
 
     /**
-     * Replaces all occurrences of a captured group by the result of a closure on that text.
+     * Replaces all occurrences of a captured group by the result of calling a closure on that text.
      * <p>
-     * For examples,
-     * <pre>
-     *     assert "hellO wOrld" == "hello world".replaceAll("(o)") { it[0].toUpperCase() }
+     * Examples:
+     * <pre class="groovyTestCase">
+     *     assert "hello world".replaceAll("(o)") { it[0].toUpperCase() } == "hellO wOrld"
      *
-     *     assert "FOOBAR-FOOBAR-" == "foobar-FooBar-".replaceAll("(([fF][oO]{2})[bB]ar)", { Object[] it -> it[0].toUpperCase() })
+     *     assert "foobar-FooBar-".replaceAll("(([fF][oO]{2})[bB]ar)", { Object[] it -> it[0].toUpperCase() }) == "FOOBAR-FOOBAR-"
      *
-     *     Here,
-     *          it[0] is the global string of the matched group
-     *          it[1] is the first string in the matched group
-     *          it[2] is the second string in the matched group
+     *     // Here,
+     *     //   it[0] is the global string of the matched group
+     *     //   it[1] is the first string in the matched group
+     *     //   it[2] is the second string in the matched group
      *
-     *     assert "FOO-FOO-" == "foobar-FooBar-".replaceAll("(([fF][oO]{2})[bB]ar)", { x, y, z -> z.toUpperCase() })
+     *     assert "foobar-FooBar-".replaceAll("(([fF][oO]{2})[bB]ar)", { x, y, z -> z.toUpperCase() }) == "FOO-FOO-"
      *
-     *     Here,
-     *          x is the global string of the matched group
-     *          y is the first string in the matched group
-     *          z is the second string in the matched group
+     *     // Here,
+     *     //   x is the global string of the matched group
+     *     //   y is the first string in the matched group
+     *     //   z is the second string in the matched group
      * </pre>
      * Note that unlike String.replaceAll(String regex, String replacement), where the replacement string
      * treats '$' and '\' specially (for group substitution), the result of the closure is converted to a string
@@ -2629,29 +2563,29 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * Replaces all occurrences of a captured group by the result of a closure call on that text.
      * <p>
      * For examples,
-     * <pre>
-     *     assert "hellO wOrld" == "hello world".replaceAll(~"(o)") { it[0].toUpperCase() }
+     * <pre class="groovyTestCase">
+     *     assert "hello world".replaceAll(~"(o)") { it[0].toUpperCase() } == "hellO wOrld"
      *
-     *     assert "FOOBAR-FOOBAR-" == "foobar-FooBar-".replaceAll(~"(([fF][oO]{2})[bB]ar)", { it[0].toUpperCase() })
+     *     assert "foobar-FooBar-".replaceAll(~"(([fF][oO]{2})[bB]ar)", { it[0].toUpperCase() }) == "FOOBAR-FOOBAR-"
      *
-     *     Here,
-     *          it[0] is the global string of the matched group
-     *          it[1] is the first string in the matched group
-     *          it[2] is the second string in the matched group
+     *     // Here,
+     *     //   it[0] is the global string of the matched group
+     *     //   it[1] is the first string in the matched group
+     *     //   it[2] is the second string in the matched group
      *
-     *     assert "FOOBAR-FOOBAR-" == "foobar-FooBar-".replaceAll(~"(([fF][oO]{2})[bB]ar)", { Object[] it -> it[0].toUpperCase() })
+     *     assert "foobar-FooBar-".replaceAll(~"(([fF][oO]{2})[bB]ar)", { Object[] it -> it[0].toUpperCase() }) == "FOOBAR-FOOBAR-"
      *
-     *     Here,
-     *          it[0] is the global string of the matched group
-     *          it[1] is the first string in the matched group
-     *          it[2] is the second string in the matched group
+     *     // Here,
+     *     //   it[0] is the global string of the matched group
+     *     //   it[1] is the first string in the matched group
+     *     //   it[2] is the second string in the matched group
      *
-     *     assert "FOO-FOO-" == "foobar-FooBar-".replaceAll("(([fF][oO]{2})[bB]ar)", { x, y, z -> z.toUpperCase() })
+     *     assert "foobar-FooBar-".replaceAll("(([fF][oO]{2})[bB]ar)", { x, y, z -> z.toUpperCase() }) == "FOO-FOO-"
      *
-     *     Here,
-     *          x is the global string of the matched group
-     *          y is the first string in the matched group
-     *          z is the second string in the matched group
+     *     // Here,
+     *     //   x is the global string of the matched group
+     *     //   y is the first string in the matched group
+     *     //   z is the second string in the matched group
      * </pre>
      * Note that unlike String.replaceAll(String regex, String replacement), where the replacement string
      * treats '$' and '\' specially (for group substitution), the result of the closure is converted to a string
@@ -2727,12 +2661,12 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * Replaces the first occurrence of a captured group by the result of a closure call on that text.
      * <p>
      * For example (with some replaceAll variants thrown in for comparison purposes),
-     * <pre>
-     * assert "hellO world" == "hello world".replaceFirst("(o)") { it[0].toUpperCase() } // first match
-     * assert "hellO wOrld" == "hello world".replaceAll("(o)") { it[0].toUpperCase() }   // all matches
+     * <pre class="groovyTestCase">
+     * assert "hello world".replaceFirst("(o)") { it[0].toUpperCase() } == "hellO world" // first match
+     * assert "hello world".replaceAll("(o)") { it[0].toUpperCase() } == "hellO wOrld" // all matches
      *
-     * assert '1-FISH, two fish' == "one fish, two fish".replaceFirst(/([a-z]{3})\s([a-z]{4})/) { [one:1, two:2][it[1]] + '-' + it[2].toUpperCase() }
-     * assert '1-FISH, 2-FISH' == "one fish, two fish".replaceAll(/([a-z]{3})\s([a-z]{4})/) { [one:1, two:2][it[1]] + '-' + it[2].toUpperCase() }
+     * assert "one fish, two fish".replaceFirst(/([a-z]{3})\s([a-z]{4})/) { [one:1, two:2][it[1]] + '-' + it[2].toUpperCase() } == '1-FISH, two fish'
+     * assert "one fish, two fish".replaceAll(/([a-z]{3})\s([a-z]{4})/) { [one:1, two:2][it[1]] + '-' + it[2].toUpperCase() } == '1-FISH, 2-FISH'
      * </pre>
      *
      * @param self    a CharSequence
@@ -2838,15 +2772,16 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
     private static class ReplaceState {
         public ReplaceState(Map<CharSequence, CharSequence> replacements) {
             this.noMoreMatches = new boolean[replacements.size()];
-            this.replacementsList = DefaultGroovyMethods.toList(replacements.entrySet());
+            this.replacementsList = DefaultGroovyMethods.toList((Iterable<Map.Entry<CharSequence,CharSequence>>)
+                    replacements.entrySet());
         }
 
         int textIndex = -1;
         int tempIndex = -1;
         int replaceIndex = -1;
         int start = -1;
-        boolean[] noMoreMatches;
-        private List<Map.Entry<CharSequence, CharSequence>> replacementsList;
+        final boolean[] noMoreMatches;
+        private final List<Map.Entry<CharSequence, CharSequence>> replacementsList;
 
         CharSequence key(int i) {
             return replacementsList.get(i).getKey();
@@ -3125,13 +3060,11 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @param pattern the regular expression Pattern for the delimiter
      * @param closure a closure
      * @return the last value returned by the closure
-     * @throws java.io.IOException if an error occurs
      * @since 1.8.2
      */
-    public static <T> T splitEachLine(CharSequence self, Pattern pattern, @ClosureParams(value=FromString.class,options={"List<String>","String[]"},conflictResolutionStrategy=PickFirstResolver.class) Closure<T> closure) throws IOException {
-        final List<String> list = readLines(self);
+    public static <T> T splitEachLine(CharSequence self, Pattern pattern, @ClosureParams(value=FromString.class,options={"List<String>","String[]"},conflictResolutionStrategy=PickFirstResolver.class) Closure<T> closure) {
         T result = null;
-        for (String line : list) {
+        for (String line : new LineIterable(self)) {
             List vals = Arrays.asList(pattern.split(line));
             result = closure.call(vals);
         }
@@ -3171,21 +3104,16 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String stripIndent(CharSequence self) {
-        String s = self.toString();
-        if (s.length() == 0) return s;
+        if (self.length() == 0) return self.toString();
         int runningCount = -1;
-        try {
-            for (String line : readLines((CharSequence) s)) {
-                // don't take blank lines into account for calculating the indent
-                if (isAllWhitespace((CharSequence) line)) continue;
-                if (runningCount == -1) runningCount = line.length();
-                runningCount = findMinimumLeadingSpaces(line, runningCount);
-                if (runningCount == 0) break;
-            }
-        } catch (IOException e) {
-            /* ignore */
+        for (String line : new LineIterable(self)) {
+            // don't take blank lines into account for calculating the indent
+            if (isAllWhitespace((CharSequence) line)) continue;
+            if (runningCount == -1) runningCount = line.length();
+            runningCount = findMinimumLeadingSpaces(line, runningCount);
+            if (runningCount == 0) break;
         }
-        return stripIndent(s, runningCount == -1 ? 0 : runningCount);
+        return stripIndent(self, runningCount == -1 ? 0 : runningCount);
     }
 
     /**
@@ -3201,27 +3129,21 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String stripIndent(CharSequence self, int numChars) {
-        String s = self.toString();
-        if (s.length() == 0 || numChars <= 0) return s;
-        try {
-            StringBuilder builder = new StringBuilder();
-            for (String line : readLines((CharSequence) s)) {
-                // normalize an empty or whitespace line to \n
-                // or strip the indent for lines containing non-space characters
-                if (!isAllWhitespace((CharSequence) line)) {
-                    builder.append(stripIndentFromLine(line, numChars));
-                }
-                builder.append("\n");
+        if (self.length() == 0 || numChars <= 0) return self.toString();
+        StringBuilder builder = new StringBuilder();
+        for (String line : new LineIterable(self)) {
+            // normalize an empty or whitespace line to \n
+            // or strip the indent for lines containing non-space characters
+            if (!isAllWhitespace((CharSequence) line)) {
+                builder.append(stripIndentFromLine(line, numChars));
             }
-            // remove the normalized ending line ending if it was not present
-            if (!s.endsWith("\n")) {
-                builder.deleteCharAt(builder.length() - 1);
-            }
-            return builder.toString();
-        } catch (IOException e) {
-            /* ignore */
+            builder.append("\n");
         }
-        return s;
+        // remove the normalized ending line ending if it was not present
+        if (self.charAt(self.length() - 1) != '\n') {
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        return builder.toString();
     }
 
     /**
@@ -3282,23 +3204,17 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String stripMargin(CharSequence self, char marginChar) {
-        String s = self.toString();
-        if (s.length() == 0) return s;
-        try {
-            StringBuilder builder = new StringBuilder();
-            for (String line : readLines((CharSequence) s)) {
-                builder.append(stripMarginFromLine(line, marginChar));
-                builder.append("\n");
-            }
-            // remove the normalized ending line ending if it was not present
-            if (!s.endsWith("\n")) {
-                builder.deleteCharAt(builder.length() - 1);
-            }
-            return builder.toString();
-        } catch (IOException e) {
-            /* ignore */
+        if (self.length() == 0) return self.toString();
+        StringBuilder builder = new StringBuilder();
+        for (String line : new LineIterable(self)) {
+            builder.append(stripMarginFromLine(line, marginChar));
+            builder.append("\n");
         }
-        return s;
+        // remove the normalized ending line ending if it was not present
+        if (self.charAt(self.length() - 1) != '\n') {
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        return builder.toString();
     }
 
     /**
@@ -3312,11 +3228,10 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String stripMargin(CharSequence self, CharSequence marginChar) {
-        String s = self.toString();
         String mc = marginChar.toString();
-        if (mc == null || mc.length() == 0) return stripMargin((CharSequence) s, '|');
+        if (mc.length() == 0) return stripMargin(self, '|');
         // TODO IllegalArgumentException for marginChar.length() > 1 ? Or support String as marker?
-        return stripMargin((CharSequence) s, mc.charAt(0));
+        return stripMargin(self, mc.charAt(0));
     }
 
     /**
@@ -3685,7 +3600,7 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
     }
 
     /**
-     * Converts the given CharSequence into a Set of unique String of one character.
+     * Converts the given CharSequence into a Set of unique Strings of one character.
      *
      * @param self a CharSequence
      * @return a Set of unique characters (each a 1-character String)
@@ -3732,11 +3647,11 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * and so on for all provided replacement characters.
      * <p>
      * Here is an example which converts the vowels in a word from lower to uppercase:
-     * <pre>
+     * <pre class="groovyTestCase">
      * assert 'hello'.tr('aeiou', 'AEIOU') == 'hEllO'
      * </pre>
      * A character range using regex-style syntax can also be used, e.g. here is an example which converts a word from lower to uppercase:
-     * <pre>
+     * <pre class="groovyTestCase">
      * assert 'hello'.tr('a-z', 'A-Z') == 'HELLO'
      * </pre>
      * Hyphens at the start or end of sourceSet or replacementSet are treated as normal hyphens and are not
@@ -3745,15 +3660,15 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * the '-' character plus the 'e' character.
      * <p>
      * Unlike the unix tr command, Groovy's tr command supports reverse ranges, e.g.:
-     * <pre>
+     * <pre class="groovyTestCase">
      * assert 'hello'.tr('z-a', 'Z-A') == 'HELLO'
      * </pre>
      * If replacementSet is smaller than sourceSet, then the last character from replacementSet is used as the replacement for all remaining source characters as shown here:
-     * <pre>
+     * <pre class="groovyTestCase">
      * assert 'Hello World!'.tr('a-z', 'A') == 'HAAAA WAAAA!'
      * </pre>
      * If sourceSet contains repeated characters, the last specified replacement is used as shown here:
-     * <pre>
+     * <pre class="groovyTestCase">
      * assert 'Hello World!'.tr('lloo', '1234') == 'He224 W4r2d!'
      * </pre>
      * The functionality provided by tr can be achieved using regular expressions but tr provides a much more compact
@@ -3800,23 +3715,17 @@ public class StringGroovyMethods extends DefaultGroovyMethodsSupport {
      * @since 1.8.2
      */
     public static String unexpand(CharSequence self, int tabStop) {
-        String s = self.toString();
-        if (s.length() == 0) return s;
-        try {
-            StringBuilder builder = new StringBuilder();
-            for (String line : readLines((CharSequence) s)) {
-                builder.append(unexpandLine(line, tabStop));
-                builder.append("\n");
-            }
-            // remove the normalized ending line ending if it was not present
-            if (!s.endsWith("\n")) {
-                builder.deleteCharAt(builder.length() - 1);
-            }
-            return builder.toString();
-        } catch (IOException e) {
-            /* ignore */
+        if (self.length() == 0) return self.toString();
+        StringBuilder builder = new StringBuilder();
+        for (String line : new LineIterable(self)) {
+            builder.append(unexpandLine((CharSequence)line, tabStop));
+            builder.append("\n");
         }
-        return s;
+        // remove the normalized ending line ending if it was not present
+        if (self.charAt(self.length() - 1) != '\n') {
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        return builder.toString();
     }
 
     /**

@@ -414,7 +414,7 @@ class ReflectionCompletor {
 
     /**
      * Offering all DefaultGroovyMethods on any object is too verbose, hiding all
-     * removes user-friendlyness. So here util methods will be added to candidates
+     * removes user-friendliness. So here util methods will be added to candidates
      * if the instance is of a suitable type.
      * This does not need to be strictly complete, only the most useful functions may appear.
      */
@@ -447,9 +447,15 @@ class ReflectionCompletor {
                     'retainAll(', 'removeAll(',
                     'unique()', 'unique('
             ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
+            if (instance instanceof Collection) {
+                [
+                        'grep('
+                ].findAll({ it.startsWith(prefix) }).each({ candidates.add(it) })
+            }
             if (instance instanceof List) {
                 [
                         'collate(',
+                        'execute()', 'execute(',
                         'pop()',
                         'transpose()'
                 ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
@@ -473,6 +479,66 @@ class ReflectionCompletor {
                     'spread()',
                     'subMap(',
                     'take(', 'takeWhile('
+            ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
+        }
+        if (instance instanceof File) {
+            [
+                    'append(',
+                    'createTempDir()', 'createTempDir(',
+                    'deleteDir()', 'directorySize()',
+                    'eachByte(', 'eachDir(', 'eachDirMatch(', 'eachDirRecurse(', 'eachFile(', 'eachFileMatch(', 'eachFileRecurse(', 'eachLine(',
+                    'filterLine(',
+                    'getBytes()', 'getText()', 'getText(',
+                    'newInputStream()', 'newOutputStream()', 'newPrintWriter()', 'newPrintWriter(', 'newReader()', 'newReader(', 'newWriter()', 'newWriter(',
+                    'readBytes()', 'readLines(',
+                    'setBytes(', 'setText(', 'size()', 'splitEachLine(',
+                    'traverse(',
+                    'withInputStream(', 'withOutputStream(', 'withPrintWriter(', 'withReader(', 'withWriter(', 'withWriterAppend(', 'write('
+            ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
+        }
+        if (instance instanceof String) {
+            [
+                    'capitalize()', 'center(', 'collectReplacements(', 'count(',
+                    'decodeBase64()', 'decodeHex()', 'denormalize()',
+                    'eachLine(', 'eachMatch(', 'execute()', 'execute(',
+                    'find(', 'findAll(',
+                    'isAllWhitespace()', 'isBigDecimal()', 'isBigInteger()', 'isDouble()', 'isFloat()', 'isInteger()', 'isLong()', 'isNumber()',
+                    'normalize()', 
+                    'padLeft(', 'padRight(',
+                    'readLines()', 'reverse()', 
+                    'size()', 'splitEachLine(', 'stripIndent(', 'stripMargin(',
+                    'toBigDecimal()', 'toBigInteger()', 'toBoolean()', 'toCharacter()', 'toDouble()', 'toFloat()', 'toInteger()',
+                    'toList()', 'toLong()', 'toSet()', 'toShort()', 'toURI()', 'toURL()',
+                    'tokenize(', 'tr('
+            ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
+        }
+        if (instance instanceof URL) {
+            [
+                    'eachLine(',
+                    'filterLine(',
+                    'getBytes()', 'getBytes(', 'getText()', 'getText(',
+                    'newInputStream()', 'newInputStream(', 'newReader()', 'newReader(',
+                    'readLines()', 'readLines(',
+                    'splitEachLine(',
+                    'withInputStream(', 'withReader('
+            ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
+        }
+        if (instance instanceof InputStream) {
+            [
+                    'eachLine(',
+                    'filterLine(',
+                    'getBytes()', 'getText()', 'getText(',
+                    'newReader()', 'newReader(',
+                    'readLines()', 'readLines(',
+                    'splitEachLine(',
+                    'withReader(', 'withStream('
+            ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
+        }
+        if (instance instanceof OutputStream) {
+            [
+                    'newPrintWriter()', 'newWriter()', 'newWriter(',
+                    'setBytes(',
+                    'withPrintWriter(', 'withStream(', 'withWriter('
             ].findAll({it.startsWith(prefix)}).each({candidates.add(it)})
         }
         if (instance instanceof Number) {
@@ -509,10 +575,6 @@ class ReflectionCompletor {
         }
         return candidates
     }
-
-
-
-
 
     private static Collection<ReflectionCompletionCandidate> addClassFieldsAndMethods(final Class clazz,
                                                                             final boolean includeStatic,

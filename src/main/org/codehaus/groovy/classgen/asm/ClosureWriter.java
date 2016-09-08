@@ -77,8 +77,14 @@ public class ClosureWriter {
         MethodVisitor mv = controller.getMethodVisitor();
         ClassNode classNode = controller.getClassNode();
         AsmClassGenerator acg = controller.getAcg();
-        
-        ClassNode closureClass = getOrAddClosureClass(expression, 0);
+
+        // generate closure as public class to make sure it can be properly invoked by classes of the
+        // Groovy runtime without circumventing JVM access checks (see CachedMethod for example).
+        int mods = ACC_PUBLIC;
+        if (classNode.isInterface()) {
+            mods |= ACC_STATIC;
+        }
+        ClassNode closureClass = getOrAddClosureClass(expression, mods);
         String closureClassinternalName = BytecodeHelper.getClassInternalName(closureClass);
         List constructors = closureClass.getDeclaredConstructors();
         ConstructorNode node = (ConstructorNode) constructors.get(0);
@@ -291,7 +297,7 @@ public class ClosureWriter {
         return answer;
     }
 
-    private void correctAccessedVariable(final InnerClassNode closureClass, ClosureExpression ce) {
+    private static void correctAccessedVariable(final InnerClassNode closureClass, ClosureExpression ce) {
         CodeVisitorSupport visitor = new CodeVisitorSupport() {
             @Override
             public void visitVariableExpression(VariableExpression expression) {
@@ -315,7 +321,7 @@ public class ClosureWriter {
      * same method, in this case the constructor. A closure should not
      * have more than one constructor!
      */
-    private void removeInitialValues(Parameter[] params) {
+    private static void removeInitialValues(Parameter[] params) {
         for (int i = 0; i < params.length; i++) {
             if (params[i].hasInitialExpression()) {
                 Parameter p = new Parameter(params[i].getType(), params[i].getName());

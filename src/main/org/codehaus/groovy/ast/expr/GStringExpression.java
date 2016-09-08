@@ -32,13 +32,15 @@ import org.codehaus.groovy.ast.GroovyCodeVisitor;
  */
 public class GStringExpression extends Expression {
 
-    private String verbatimText;
-    private List<ConstantExpression> strings = new ArrayList<ConstantExpression>();
-    private List<Expression> values = new ArrayList<Expression>();
+    private final String verbatimText;
+    private final List<ConstantExpression> strings;
+    private final List<Expression> values;
     
     public GStringExpression(String verbatimText) {
         this.verbatimText = verbatimText;
         super.setType(ClassHelper.GSTRING_TYPE);
+        this.strings = new ArrayList<ConstantExpression>();
+        this.values = new ArrayList<Expression>();
     }
 
     public GStringExpression(String verbatimText, List<ConstantExpression> strings, List<Expression> values) {
@@ -88,7 +90,7 @@ public class GStringExpression extends Expression {
     public void addValue(Expression value) {
         // If the first thing is an value, then we need a dummy empty string in front of it so that when we
         // toString it they come out in the correct order.
-        if (strings.size() == 0)
+        if (strings.isEmpty())
             strings.add(ConstantExpression.EMPTY_STRING);
         values.add(value);
     }

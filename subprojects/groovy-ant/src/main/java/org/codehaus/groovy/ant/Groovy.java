@@ -25,7 +25,6 @@ import groovy.lang.MissingMethodException;
 import groovy.lang.Script;
 import groovy.util.AntBuilder;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Java;
 import org.apache.tools.ant.types.Commandline;
@@ -69,7 +68,7 @@ public class Groovy extends Java {
     /**
      * files to load
      */
-    private Vector<FileSet> filesets = new Vector<FileSet>();
+    private final Vector<FileSet> filesets = new Vector<FileSet>();
 
     /**
      * input file
@@ -106,9 +105,9 @@ public class Groovy extends Java {
      * Used to specify the debug output to print stacktraces in case something fails.
      * TODO: Could probably be reused to specify the encoding of the files to load or other properties.
      */
-    private CompilerConfiguration configuration = new CompilerConfiguration();
+    private final CompilerConfiguration configuration = new CompilerConfiguration();
 
-    private Commandline cmdline = new Commandline();
+    private final Commandline cmdline = new Commandline();
     private boolean contextClassLoader;
 
     /**
@@ -297,15 +296,6 @@ public class Groovy extends Java {
 
         if (srcFile != null && !srcFile.exists()) {
             throw new BuildException("Source file does not exist!", getLocation());
-        }
-
-        // TODO: any of this used?
-        // deal with the filesets
-        for (int i = 0; i < filesets.size(); i++) {
-            FileSet fs = filesets.elementAt(i);
-            DirectoryScanner ds = fs.getDirectoryScanner(getProject());
-            File srcDir = fs.getDir(getProject());
-            String[] srcFiles = ds.getIncludedFiles();
         }
 
         try {

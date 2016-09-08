@@ -38,7 +38,7 @@ public class NumberValue extends java.lang.Number implements Value {
     private boolean chopped;
     private int startIndex;
     private int endIndex;
-    private Type type;
+    private final Type type;
     private Object value;
 
     public NumberValue(Type type) {
@@ -46,7 +46,7 @@ public class NumberValue extends java.lang.Number implements Value {
     }
 
     public NumberValue() {
-
+        this.type = null;
     }
 
     public NumberValue(boolean chop, Type type, int startIndex, int endIndex, char[] buffer) {
@@ -99,18 +99,15 @@ public class NumberValue extends java.lang.Number implements Value {
         return false;
     }
 
-    private final Object doToValue() {
+    private Object doToValue() {
         switch (type) {
             case DOUBLE:
                 return bigDecimalValue();
             case INTEGER:
                 int sign = 1;
-                boolean negative = false;
                 if (buffer[startIndex] == '-') {
                     startIndex++;
                     sign = -1;
-                    negative = true;
-
                 }
 
                 if (isInteger(buffer, startIndex, endIndex - startIndex)) {
@@ -133,9 +130,8 @@ public class NumberValue extends java.lang.Number implements Value {
         if (startIndex != value1.startIndex) return false;
         if (!Arrays.equals(buffer, value1.buffer)) return false;
         if (type != value1.type) return false;
-        if (value != null ? !value.equals(value1.value) : value1.value != null) return false;
+        return value != null ? value.equals(value1.value) : value1.value == null;
 
-        return true;
     }
 
     public int hashCode() {
@@ -195,19 +191,6 @@ public class NumberValue extends java.lang.Number implements Value {
     public short shortValue() {
         return (short) intValue();
     }
-
-    private static float fpowersOf10[] = {
-            1.0f,
-            10.0f,
-            100.0f,
-            1000.0f,
-            10000.0f,
-            100000.0f,
-            1000000.0f,
-            10000000.0f,
-            100000000.0f,
-            1000000000.0f,
-    };
 
     public double doubleValue() {
         return CharScanner.parseDouble(this.buffer, startIndex, endIndex);

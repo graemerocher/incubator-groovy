@@ -137,6 +137,7 @@ public class BinaryExpressionTransformer {
                         MethodCallExpression call = new MethodCallExpression(left, "compareTo", new ArgumentListExpression(right));
                         call.setImplicitThis(false);
                         call.setMethodTarget(COMPARE_TO_METHOD);
+                        call.setSourcePosition(bin);
 
                         CompareIdentityExpression compareIdentity = new CompareIdentityExpression(
                                 left, right
@@ -192,6 +193,7 @@ public class BinaryExpressionTransformer {
                 call.setMethodTarget(adapter);
                 call.setImplicitThis(false);
             }
+            call.setSourcePosition(bin);
             if (!isAssignment) return call;
             // case of +=, -=, /=, ...
             // the method represents the operation type only, and we must add an assignment
@@ -248,7 +250,7 @@ public class BinaryExpressionTransformer {
         return staticCompilationTransformer.superTransform(bin);
     }
 
-    private BinaryExpression tryOptimizeCharComparison(final Expression left, final Expression right, final BinaryExpression bin) {
+    private static BinaryExpression tryOptimizeCharComparison(final Expression left, final Expression right, final BinaryExpression bin) {
         int op = bin.getOperation().getType();
         if (isCompareToBoolean(op) || op == COMPARE_EQUAL || op == COMPARE_NOT_EQUAL) {
             Character cLeft = tryCharConstant(left);
@@ -266,7 +268,7 @@ public class BinaryExpressionTransformer {
         return null;
     }
 
-    private Character tryCharConstant(final Expression expr) {
+    private static Character tryCharConstant(final Expression expr) {
         if (expr instanceof ConstantExpression) {
             ConstantExpression ce = (ConstantExpression) expr;
             if (ClassHelper.STRING_TYPE.equals(ce.getType())) {
@@ -279,7 +281,7 @@ public class BinaryExpressionTransformer {
         return null;
     }
 
-    private Expression transformDeclarationExpression(final BinaryExpression bin) {
+    private static Expression transformDeclarationExpression(final BinaryExpression bin) {
         Expression leftExpression = bin.getLeftExpression();
         if (leftExpression instanceof VariableExpression) {
             if (ClassHelper.char_TYPE.equals(((VariableExpression) leftExpression).getOriginType())) {
@@ -321,7 +323,7 @@ public class BinaryExpressionTransformer {
         return staticCompilationTransformer.transform(tExp);
     }
 
-    private DeclarationExpression optimizeConstantInitialization(
+    private static DeclarationExpression optimizeConstantInitialization(
             final BinaryExpression originalDeclaration,
             final Token operation,
             final ConstantExpression constant,
@@ -377,7 +379,7 @@ public class BinaryExpressionTransformer {
                 directMCT,
                 arg,
                 false,
-                false,
+                leftExpression.isSafe(),
                 false,
                 true, // to be replaced with a proper test whether a return value should be used or not
                 leftExpression

@@ -23,6 +23,8 @@ import org.codehaus.groovy.ast.expr.*;
 import org.codehaus.groovy.ast.stmt.BlockStatement;
 import org.codehaus.groovy.ast.stmt.ExpressionStatement;
 import org.codehaus.groovy.ast.stmt.Statement;
+import org.codehaus.groovy.ast.tools.ClassNodeUtils;
+import org.codehaus.groovy.ast.tools.ParameterUtils;
 import org.codehaus.groovy.control.CompilePhase;
 import org.codehaus.groovy.transform.ASTTransformation;
 import org.codehaus.groovy.transform.GroovyASTTransformation;
@@ -30,7 +32,18 @@ import org.codehaus.groovy.vmplugin.VMPluginFactory;
 import org.objectweb.asm.Opcodes;
 
 import java.lang.reflect.Array;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Represents a class in the AST.
@@ -87,12 +100,10 @@ import java.util.*;
  * by the class are needed, then a call to {@link #redirect()} will help.
  *
  * @see org.codehaus.groovy.ast.ClassHelper
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Jochen Theodorou
  */
 public class ClassNode extends AnnotatedNode implements Opcodes {
     private static class MapOfLists {
-        private Map<Object, List<MethodNode>> map = new HashMap<Object, List<MethodNode>>();
+        private final Map<Object, List<MethodNode>> map = new HashMap<Object, List<MethodNode>>();
         public List<MethodNode> get(Object key) {
             return map.get(key);
         }
@@ -425,23 +436,13 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
     public Map<String, MethodNode> getDeclaredMethodsMap() {
         // Start off with the methods from the superclass.
         ClassNode parent = getSuperClass();
-        Map<String, MethodNode> result = null;
+        Map<String, MethodNode> result;
         if (parent != null) {
             result = parent.getDeclaredMethodsMap();
         } else {
             result = new HashMap<String, MethodNode>();
         }
-
-        // add in unimplemented abstract methods from the interfaces
-        for (ClassNode iface : getInterfaces()) {
-            Map<String, MethodNode> ifaceMethodsMap = iface.getDeclaredMethodsMap();
-            for (String methSig : ifaceMethodsMap.keySet()) {
-                if (!result.containsKey(methSig)) {
-                    MethodNode methNode = ifaceMethodsMap.get(methSig);
-                    result.put(methSig, methNode);
-                }
-            }
-        }
+        ClassNodeUtils.addInterfaceMethods(this, result);
 
         // And add in the methods implemented in this class.
         for (MethodNode method : getMethods()) {
@@ -1044,17 +1045,7 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
      * @return true if the two arrays are of the same size and have the same contents
      */
     protected boolean parametersEqual(Parameter[] a, Parameter[] b) {
-        if (a.length == b.length) {
-            boolean answer = true;
-            for (int i = 0; i < a.length; i++) {
-                if (!a[i].getType().equals(b[i].getType())) {
-                    answer = false;
-                    break;
-                }
-            }
-            return answer;
-        }
-        return false;
+        return ParameterUtils.parametersEqual(a, b);
     }
 
     /**
@@ -1096,6 +1087,10 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
     }
 
     public MethodNode getGetterMethod(String getterName) {
+        return getGetterMethod(getterName, true);
+    }
+
+    public MethodNode getGetterMethod(String getterName, boolean searchSuperClasses) {
         MethodNode getterMethod = null;
         for (MethodNode method : getDeclaredMethods(getterName)) {
             if (getterName.equals(method.getName())
@@ -1111,8 +1106,10 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
             }
         }
         if (getterMethod != null) return getterMethod;
-        ClassNode parent = getSuperClass();
-        if (parent!=null) return parent.getGetterMethod(getterName);
+        if (searchSuperClasses) {
+            ClassNode parent = getSuperClass();
+            if (parent != null) return parent.getGetterMethod(getterName);
+        }
         return null;
     }
 
@@ -1178,7 +1175,7 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
             for (int i = 0; i < genericsTypes.length; i++) {
                 if (i != 0) ret += ", ";
                 GenericsType genericsType = genericsTypes[i];
-                ret += genericTypeAsString(genericsType, showRedirect);
+                ret += genericTypeAsString(genericsType);
             }
             ret += ">";
         }
@@ -1192,10 +1189,9 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
      * This exists to avoid a recursive definition of toString. The default toString
      * in GenericsType calls ClassNode.toString(), which calls GenericsType.toString(), etc. 
      * @param genericsType
-     * @param showRedirect
      * @return the string representing the generic type
      */
-    private String genericTypeAsString(GenericsType genericsType, boolean showRedirect) {
+    private String genericTypeAsString(GenericsType genericsType) {
         String ret = genericsType.getName();
         if (genericsType.getUpperBounds() != null) {
             ret += " extends ";
@@ -1204,7 +1200,7 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
                 if (classNode.equals(this)) {
                     ret += classNode.getName();
                 } else {
-                    ret += classNode.toString(showRedirect);
+                    ret += classNode.toString(false);
                 }
                 if (i + 1 < genericsType.getUpperBounds().length) ret += " & ";
             }
@@ -1306,44 +1302,15 @@ public class ClassNode extends AnnotatedNode implements Opcodes {
      * @return true if a matching method was found
      */
     public boolean hasPossibleStaticMethod(String name, Expression arguments) {
-        int count = 0;
-
-        if (arguments instanceof TupleExpression) {
-            TupleExpression tuple = (TupleExpression) arguments;
-            // TODO this won't strictly be true when using list expansion in argument calls
-            count = tuple.getExpressions().size();
-        } else if (arguments instanceof MapExpression) {
-            count = 1;
-        }
-        
-        for (MethodNode method : getMethods(name)) {
-            if(method.isStatic()) {
-                Parameter[] parameters = method.getParameters(); 
-                if (parameters.length == count) return true;
-
-                // handle varargs case
-                if (parameters.length > 0 && parameters[parameters.length - 1].getType().isArray()) {
-                    if (count >= parameters.length - 1) return true;
-                }
-                
-                // handle parameters with default values
-                int nonDefaultParameters = 0;
-                for (Parameter parameter : parameters) {
-                    if (!parameter.hasInitialExpression()) {
-                        nonDefaultParameters++;
-                    }
-                }
-
-                if (count < parameters.length && nonDefaultParameters <= count) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return ClassNodeUtils.hasPossibleStaticMethod(this, name, arguments, false);
     }
 
     public boolean isInterface(){
         return (getModifiers() & Opcodes.ACC_INTERFACE) > 0;
+    }
+
+    public boolean isAbstract(){
+        return (getModifiers() & Opcodes.ACC_ABSTRACT) > 0;
     }
 
     public boolean isResolved() {
